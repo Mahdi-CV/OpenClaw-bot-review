@@ -15,6 +15,11 @@ interface Session {
   systemSent: boolean;
 }
 
+interface GatewayInfo {
+  port: number;
+  token?: string;
+}
+
 const TYPE_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
   main: { label: "主会话", emoji: "🏠", color: "bg-green-500/20 text-green-300 border-green-500/30" },
   "feishu-dm": { label: "飞书私聊", emoji: "📱", color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
@@ -46,16 +51,21 @@ export default function SessionsPage() {
   const searchParams = useSearchParams();
   const agentId = searchParams.get("agent") || "";
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [gateway, setGateway] = useState<GatewayInfo>({ port: 18789 });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!agentId) return;
-    fetch(`/api/sessions/${agentId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else setSessions(d.sessions || []);
+    // 并行获取 sessions 和 gateway 配置
+    Promise.all([
+      fetch(`/api/sessions/${agentId}`).then((r) => r.json()),
+      fetch("/api/config").then((r) => r.json()),
+    ])
+      .then(([sessData, configData]) => {
+        if (sessData.error) setError(sessData.error);
+        else setSessions(sessData.sessions || []);
+        if (configData.gateway) setGateway(configData.gateway);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -107,10 +117,13 @@ export default function SessionsPage() {
       <div className="space-y-3">
         {sessions.map((s) => {
           const typeInfo = TYPE_LABELS[s.type] || TYPE_LABELS.unknown;
+          let chatUrl = `http://localhost:${gateway.port}/chat?session=${encodeURIComponent(s.key)}`;
+          if (gateway.token) chatUrl += `&token=${encodeURIComponent(gateway.token)}`;
           return (
             <div
               key={s.key}
-              className="p-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)] transition"
+              onClick={() => window.open(chatUrl, "_blank")}
+              className="p-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)] transition cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
