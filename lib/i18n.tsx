@@ -144,6 +144,11 @@ const translations: Record<Locale, Record<string, string>> = {
     "sessions.testTime": "耗时",
     "sessions.context": "上下文",
     "sessions.selectAgent": "选择一个机器人查看其会话列表",
+    "sessions.testAll": "🧪 测试全部",
+    "sessions.testingAll": "⏳ 测试中...",
+    "sessions.testAllResult": "测试完成",
+    "sessions.testAllOk": "通过",
+    "sessions.testAllFail": "失败",
     "sessions.backToAgents": "← 返回机器人列表",
 
     // skills page
@@ -299,6 +304,11 @@ const translations: Record<Locale, Record<string, string>> = {
     "sessions.testTime": "Time",
     "sessions.context": "Context",
     "sessions.selectAgent": "Select an agent to view its sessions",
+    "sessions.testAll": "🧪 Test All",
+    "sessions.testingAll": "⏳ Testing...",
+    "sessions.testAllResult": "Test complete",
+    "sessions.testAllOk": "passed",
+    "sessions.testAllFail": "failed",
     "sessions.backToAgents": "← Back to agents",
 
     // skills page

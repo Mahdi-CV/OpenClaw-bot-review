@@ -160,6 +160,7 @@ function SessionList({ agentId }: { agentId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [testResults, setTestResults] = useState<Record<string, { status: string; elapsed?: number; reply?: string; error?: string }>>({});
+  const [testingAll, setTestingAll] = useState(false);
   const { t } = useI18n();
 
   function formatTimeAgo(ts: number): string {
@@ -213,8 +214,8 @@ function SessionList({ agentId }: { agentId: string }) {
 
   const totalTokens = sessions.reduce((sum, s) => sum + s.totalTokens, 0);
 
-  async function testSession(sessionKey: string, e: React.MouseEvent) {
-    e.stopPropagation();
+  async function testSession(sessionKey: string, e?: React.MouseEvent) {
+    e?.stopPropagation();
     setTestResults((prev) => ({ ...prev, [sessionKey]: { status: "testing" } }));
     try {
       const res = await fetch("/api/test-session", {
@@ -224,9 +225,19 @@ function SessionList({ agentId }: { agentId: string }) {
       });
       const data = await res.json();
       setTestResults((prev) => ({ ...prev, [sessionKey]: data }));
+      return data;
     } catch (err: any) {
-      setTestResults((prev) => ({ ...prev, [sessionKey]: { status: "error", error: err.message } }));
+      const result = { status: "error", error: err.message };
+      setTestResults((prev) => ({ ...prev, [sessionKey]: result }));
+      return result;
     }
+  }
+
+  async function testAllSessions() {
+    setTestingAll(true);
+    const promises = sessions.map((s) => testSession(s.key));
+    await Promise.all(promises);
+    setTestingAll(false);
   }
 
   return (
@@ -239,6 +250,13 @@ function SessionList({ agentId }: { agentId: string }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={testAllSessions}
+            disabled={testingAll}
+            className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+          >
+            {testingAll ? t("sessions.testingAll") : t("sessions.testAll")}
+          </button>
           <Link
             href="/sessions"
             className="px-4 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-sm hover:border-[var(--accent)] transition"
