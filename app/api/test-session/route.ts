@@ -36,7 +36,7 @@ export async function POST(req: Request) {
           messages: [{ role: "user", content: "Health check: reply with OK" }],
           max_tokens: 64,
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(100000),
       });
 
       const data = await resp.json();
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         status: "error",
         sessionKey,
         elapsed,
-        error: isTimeout ? "Timeout: agent not responding (30s)" : (err.message || "Unknown error").slice(0, 300),
+        error: isTimeout ? "Timeout: agent not responding (100s)" : (err.message || "Unknown error").slice(0, 300),
       });
     }
   } catch (err: any) {
