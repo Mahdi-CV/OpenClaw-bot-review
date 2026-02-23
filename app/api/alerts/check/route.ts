@@ -53,6 +53,9 @@ async function sendAlert(agentId: string, message: string) {
   const sessionKey = `agent:${agentId}:main`;
   
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    
     const resp = await fetch(`http://127.0.0.1:${gateway.port}/v1/chat/completions`, {
       method: "POST",
       headers: {
@@ -65,7 +68,10 @@ async function sendAlert(agentId: string, message: string) {
           { role: "user", content: message }
         ],
       }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeout);
     
     if (resp.ok) {
       console.log(`[ALERT] Sent to ${agentId}: ${message}`);
