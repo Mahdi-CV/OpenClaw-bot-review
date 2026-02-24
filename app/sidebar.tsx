@@ -58,17 +58,15 @@ export function Sidebar() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <Link href="/" className="flex items-center gap-2">
-                <span className="text-xl">🐾</span>
-                <div>
-                  <div className="text-sm font-bold text-[var(--text)] tracking-wide">OPENCLAW</div>
-                  <div className="text-[10px] text-[var(--text-muted)] tracking-wider">BOT DASHBOARD</div>
-                </div>
-              </Link>
-              <div className="flex items-center gap-2">
-                <LanguageSwitcher />
-                <ThemeSwitcher />
+            <div>
+              <div className="flex items-center justify-between">
+                <Link href="/" className="flex items-center gap-2">
+                  <span className="text-xl">🐾</span>
+                  <div>
+                    <div className="text-sm font-bold text-[var(--text)] tracking-wide">OPENCLAW</div>
+                    <div className="text-[10px] text-[var(--text-muted)] tracking-wider">BOT DASHBOARD</div>
+                  </div>
+                </Link>
                 <button
                   onClick={() => setCollapsed(true)}
                   className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors text-lg"
@@ -76,6 +74,10 @@ export function Sidebar() {
                 >
                   «
                 </button>
+              </div>
+              <div className="flex items-center gap-2 mt-2 pl-8">
+                <LanguageSwitcher />
+                <ThemeSwitcher />
               </div>
             </div>
           )}
