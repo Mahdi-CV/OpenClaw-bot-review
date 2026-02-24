@@ -19,13 +19,13 @@ const NAV_ITEMS = [
     items: [
       { href: "/sessions", icon: "💬", labelKey: "nav.sessions" },
       { href: "/stats", icon: "📊", labelKey: "nav.stats" },
+      { href: "/alerts", icon: "🔔", labelKey: "nav.alerts" },
     ],
   },
   {
     group: "nav.config",
     items: [
       { href: "/skills", icon: "🧩", labelKey: "nav.skills" },
-      { href: "/alerts", icon: "🔔", labelKey: "nav.alerts" },
     ],
   },
 ];
