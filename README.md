@@ -6,7 +6,7 @@ A lightweight web dashboard for viewing all your [OpenClaw](https://github.com/o
 
 When running multiple OpenClaw agents across different platforms (Feishu, Discord, etc.), managing and monitoring them becomes increasingly complex — which bot uses which model? Are the platforms connected? Is the gateway healthy? How are tokens being consumed?
 
-This dashboard reads your local OpenClaw configuration and session data, providing a unified web UI to monitor and test all your agents, models, platforms, and sessions in real time. No database required — everything is derived directly from `~/.openclaw/openclaw.json` and local session files.
+This dashboard reads your local OpenClaw configuration and session data, providing a unified web UI to monitor and test all your agents, models, platforms, and sessions in real time. No database required — everything is derived directly from `~/.openclaw/openclaw.json` and local session files. Plus, a fun pixel-art office brings your agents to life as animated characters walking around, sitting at desks, and interacting with furniture.
 
 ## Features
 
@@ -21,6 +21,7 @@ This dashboard reads your local OpenClaw configuration and session data, providi
 - **Auto Refresh** — Configurable refresh interval (manual, 10s, 30s, 1min, 5min, 10min)
 - **i18n** — Chinese and English UI language switching
 - **Dark/Light Theme** — Theme switcher in sidebar
+- **Pixel Office** — Animated pixel-art office where agents appear as characters that walk, sit, and interact with furniture in real time
 - **Live Config** — Reads directly from `~/.openclaw/openclaw.json` and local session files, no database needed
 
 ## Preview
@@ -30,6 +31,8 @@ This dashboard reads your local OpenClaw configuration and session data, providi
 ![Models Preview](docs/models-preview.png)
 
 ![Sessions Preview](docs/sessions-preview.png)
+
+![Pixel Office](docs/pixel-office.png)
 
 ## Getting Started
 
@@ -76,7 +79,7 @@ OPENCLAW_HOME=/opt/openclaw npm run dev
 
 当你在多个平台（飞书、Discord 等）上运行多个 OpenClaw Agent 时，管理和监控会变得越来越复杂——哪个机器人用了哪个模型？平台连通性如何？Gateway 是否正常？Token 消耗了多少？
 
-本仪表盘读取本地 OpenClaw 配置和会话数据，提供统一的 Web 界面来实时监控和测试所有 Agent、模型、平台和会话。无需数据库——所有数据直接来源于 `~/.openclaw/openclaw.json` 和本地会话文件。
+本仪表盘读取本地 OpenClaw 配置和会话数据，提供统一的 Web 界面来实时监控和测试所有 Agent、模型、平台和会话。无需数据库——所有数据直接来源于 `~/.openclaw/openclaw.json` 和本地会话文件。此外，内置像素风动画办公室，让你的 Agent 化身像素角色在办公室里行走、就座、互动，为枯燥的运维增添一份趣味。
 
 ## 功能
 
@@ -91,6 +94,7 @@ OPENCLAW_HOME=/opt/openclaw npm run dev
 - **自动刷新** — 可配置刷新间隔（手动、10秒、30秒、1分钟、5分钟、10分钟）
 - **国际化** — 支持中英文界面切换
 - **主题切换** — 侧边栏支持深色/浅色主题切换
+- **像素办公室** — 像素风动画办公室，Agent 以像素角色呈现，实时行走、就座、与家具互动
 - **实时配置** — 直接读取 `~/.openclaw/openclaw.json` 和本地会话文件，无需数据库
 
 ## 预览
@@ -100,6 +104,8 @@ OPENCLAW_HOME=/opt/openclaw npm run dev
 ![模型列表预览](docs/models-preview.png)
 
 ![会话列表预览](docs/sessions-preview.png)
+
+![像素办公室](docs/pixel-office.png)
 
 ## 快速开始
 
