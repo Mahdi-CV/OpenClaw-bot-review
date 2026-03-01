@@ -41,7 +41,7 @@ interface ConfigData {
   agents: Agent[];
   defaults: { model: string; fallbacks: string[] };
   providers?: { id: string; accessMode?: "auth" | "api_key" }[];
-  gateway?: { port: number; token?: string };
+  gateway?: { port: number; token?: string; host?: string };
   groupChats?: GroupChat[];
 }
 
@@ -183,7 +183,7 @@ interface PlatformTestResult {
 }
 
 // 平台标签颜色
-function PlatformBadge({ platform, agentId, gatewayPort, gatewayToken, t, testResult }: { platform: Platform; agentId: string; gatewayPort: number; gatewayToken?: string; t: TFunc; testResult?: PlatformTestResult | null }) {
+function PlatformBadge({ platform, agentId, gatewayPort, gatewayToken, gatewayHost, t, testResult }: { platform: Platform; agentId: string; gatewayPort: number; gatewayToken?: string; gatewayHost?: string; t: TFunc; testResult?: PlatformTestResult | null }) {
   const pName = platform.name;
 
   let sessionKey: string;
@@ -198,8 +198,8 @@ function PlatformBadge({ platform, agentId, gatewayPort, gatewayToken, t, testRe
   } else {
     sessionKey = `agent:${agentId}:main`;
   }
-  let sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey });
-  if (gatewayToken) sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey, token: gatewayToken });
+  let sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey }, gatewayHost);
+  if (gatewayToken) sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey, token: gatewayToken }, gatewayHost);
 
   const badgeStyle = pName === "feishu"
     ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/40 hover:border-blue-400"
@@ -331,10 +331,10 @@ function AgentStatusBadge({ state, t }: { state?: string; t: TFunc }) {
 }
 
 // Agent 卡片
-function AgentCard({ agent, gatewayPort, gatewayToken, t, testResult, platformTestResults, sessionTestResult, agentState, dmSessionResults, providerAccessModeMap }: { agent: Agent; gatewayPort: number; gatewayToken?: string; t: TFunc; testResult?: { ok: boolean; text?: string; error?: string; elapsed: number } | null; platformTestResults?: Record<string, PlatformTestResult | null>; sessionTestResult?: { ok: boolean; reply?: string; error?: string; elapsed: number } | null; agentState?: string; dmSessionResults?: Record<string, PlatformTestResult | null>; providerAccessModeMap?: Record<string, "auth" | "api_key"> }) {
+function AgentCard({ agent, gatewayPort, gatewayToken, gatewayHost, t, testResult, platformTestResults, sessionTestResult, agentState, dmSessionResults, providerAccessModeMap }: { agent: Agent; gatewayPort: number; gatewayToken?: string; gatewayHost?: string; t: TFunc; testResult?: { ok: boolean; text?: string; error?: string; elapsed: number } | null; platformTestResults?: Record<string, PlatformTestResult | null>; sessionTestResult?: { ok: boolean; reply?: string; error?: string; elapsed: number } | null; agentState?: string; dmSessionResults?: Record<string, PlatformTestResult | null>; providerAccessModeMap?: Record<string, "auth" | "api_key"> }) {
   const sessionKey = `agent:${agent.id}:main`;
-  let sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey });
-  if (gatewayToken) sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey, token: gatewayToken });
+  let sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey }, gatewayHost);
+  if (gatewayToken) sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey, token: gatewayToken }, gatewayHost);
   const modelProvider = agent.model.includes("/") ? agent.model.split("/", 1)[0] : "default";
   const modelAccessMode = providerAccessModeMap?.[modelProvider];
 
@@ -406,7 +406,7 @@ function AgentCard({ agent, gatewayPort, gatewayToken, t, testResult, platformTe
               const dmResult = dmSessionResults ? dmSessionResults[dmKey] : undefined;
               return (
                 <div key={i} className="grid grid-cols-2 items-center gap-2">
-                  <PlatformBadge platform={p} agentId={agent.id} gatewayPort={gatewayPort} gatewayToken={gatewayToken} t={t} testResult={pResult} />
+                  <PlatformBadge platform={p} agentId={agent.id} gatewayPort={gatewayPort} gatewayToken={gatewayToken} gatewayHost={gatewayHost} t={t} testResult={pResult} />
                   <div className="flex justify-end">
                     {dmResult === undefined ? (
                       <span className="text-sm text-[var(--text-muted)]">DM Session: --</span>
@@ -524,6 +524,33 @@ export default function Home() {
     { label: t("refresh.10m"), value: 600 },
   ];
 
+  const parseApiPayload = useCallback(async (resp: Response) => {
+    const raw = await resp.text();
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {}
+    const errorText = parsed?.error || raw || `HTTP ${resp.status}`;
+    return { ok: resp.ok, status: resp.status, data: parsed, errorText };
+  }, []);
+
+  const callTestApi = useCallback(async (url: string) => {
+    const requestWithMethod = async (method: "POST" | "GET") => {
+      const resp = await fetch(url, { method, cache: "no-store" });
+      return parseApiPayload(resp);
+    };
+
+    const first = await requestWithMethod("POST");
+    if (first.ok) return first.data;
+
+    const methodIssue = first.status === 405 || /method not allowed/i.test(first.errorText || "");
+    if (!methodIssue) throw new Error(first.errorText);
+
+    const fallback = await requestWithMethod("GET");
+    if (fallback.ok) return fallback.data;
+    throw new Error(fallback.errorText || first.errorText);
+  }, [parseApiPayload]);
+
   const fetchData = useCallback((silent = false) => {
     if (!silent) setLoading(true);
     Promise.all([
@@ -629,8 +656,7 @@ export default function Home() {
     const pending: Record<string, any> = {};
     if (data) for (const a of data.agents) pending[a.id] = null;
     setTestResults(pending);
-    fetch("/api/test-agents", { method: "POST" })
-      .then((r) => r.json())
+    callTestApi("/api/test-agents")
       .then((resp) => {
         if (resp.results) {
           const map: Record<string, { ok: boolean; text?: string; error?: string; elapsed: number }> = {};
@@ -638,9 +664,14 @@ export default function Home() {
           setTestResults(map);
         }
       })
-      .catch(() => {})
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : "Request failed";
+        const failed: Record<string, { ok: boolean; error: string; elapsed: number }> = {};
+        if (data) for (const a of data.agents) failed[a.id] = { ok: false, error: msg, elapsed: 0 };
+        setTestResults(failed);
+      })
       .finally(() => setTesting(false));
-  }, [data]);
+  }, [data, callTestApi]);
 
   const testAllPlatforms = useCallback(() => {
     setTestingPlatforms(true);
@@ -654,8 +685,7 @@ export default function Home() {
       }
     }
     setPlatformTestResults(pending);
-    fetch("/api/test-platforms", { method: "POST" })
-      .then((r) => r.json())
+    callTestApi("/api/test-platforms")
       .then((resp) => {
         if (resp.results) {
           const map: Record<string, PlatformTestResult> = {};
@@ -663,17 +693,31 @@ export default function Home() {
           setPlatformTestResults(map);
         }
       })
-      .catch(() => {})
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : "Request failed";
+        const failed: Record<string, PlatformTestResult> = {};
+        if (data) {
+          for (const a of data.agents) {
+            for (const p of a.platforms) {
+              failed[`${a.id}:${p.name}`] = {
+                ok: false,
+                error: msg,
+                elapsed: 0,
+              };
+            }
+          }
+        }
+        setPlatformTestResults(failed);
+      })
       .finally(() => setTestingPlatforms(false));
-  }, [data]);
+  }, [data, callTestApi]);
 
   const testAllSessions = useCallback(() => {
     setTestingSessions(true);
     const pending: Record<string, any> = {};
     if (data) for (const a of data.agents) pending[a.id] = null;
     setSessionTestResults(pending);
-    fetch("/api/test-sessions", { method: "POST" })
-      .then((r) => r.json())
+    callTestApi("/api/test-sessions")
       .then((resp) => {
         if (resp.results) {
           const map: Record<string, { ok: boolean; reply?: string; error?: string; elapsed: number }> = {};
@@ -681,9 +725,14 @@ export default function Home() {
           setSessionTestResults(map);
         }
       })
-      .catch(() => {})
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : "Request failed";
+        const failed: Record<string, { ok: boolean; error: string; elapsed: number }> = {};
+        if (data) for (const a of data.agents) failed[a.id] = { ok: false, error: msg, elapsed: 0 };
+        setSessionTestResults(failed);
+      })
       .finally(() => setTestingSessions(false));
-  }, [data]);
+  }, [data, callTestApi]);
 
   const testAllDmSessions = useCallback(() => {
     setTestingDmSessions(true);
@@ -696,8 +745,7 @@ export default function Home() {
       }
     }
     setDmSessionResults(pending);
-    fetch("/api/test-dm-sessions", { method: "POST" })
-      .then((r) => r.json())
+    callTestApi("/api/test-dm-sessions")
       .then((resp) => {
         if (resp.results) {
           const map: Record<string, PlatformTestResult> = {};
@@ -705,9 +753,24 @@ export default function Home() {
           setDmSessionResults(map);
         }
       })
-      .catch(() => {})
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : "Request failed";
+        const failed: Record<string, PlatformTestResult> = {};
+        if (data) {
+          for (const a of data.agents) {
+            for (const p of a.platforms) {
+              failed[`${a.id}:${p.name}`] = {
+                ok: false,
+                error: msg,
+                elapsed: 0,
+              };
+            }
+          }
+        }
+        setDmSessionResults(failed);
+      })
       .finally(() => setTestingDmSessions(false));
-  }, [data]);
+  }, [data, callTestApi]);
 
   // 定时刷新
   useEffect(() => {
@@ -837,7 +900,7 @@ export default function Home() {
       {/* 卡片墙 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.agents.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} gatewayPort={data.gateway?.port || 18789} gatewayToken={data.gateway?.token} t={t} testResult={testResults?.[agent.id]} platformTestResults={platformTestResults || undefined} sessionTestResult={sessionTestResults?.[agent.id]} agentState={agentStates[agent.id]} dmSessionResults={dmSessionResults || undefined} providerAccessModeMap={providerAccessModeMap} />
+          <AgentCard key={agent.id} agent={agent} gatewayPort={data.gateway?.port || 18789} gatewayToken={data.gateway?.token} gatewayHost={data.gateway?.host} t={t} testResult={testResults?.[agent.id]} platformTestResults={platformTestResults || undefined} sessionTestResult={sessionTestResults?.[agent.id]} agentState={agentStates[agent.id]} dmSessionResults={dmSessionResults || undefined} providerAccessModeMap={providerAccessModeMap} />
         ))}
       </div>
 

@@ -33,6 +33,7 @@ interface Session {
 interface GatewayInfo {
   port: number;
   token?: string;
+  host?: string;
 }
 
 const TYPE_EMOJI_COLOR: Record<string, { emoji: string; color: string }> = {
@@ -289,8 +290,8 @@ function SessionList({ agentId }: { agentId: string }) {
       <div className="space-y-3">
         {sessions.map((s) => {
           const typeInfo = getTypeLabel(s.type);
-          let chatUrl = buildGatewayUrl(gateway.port, "/chat", { session: s.key });
-          if (gateway.token) chatUrl = buildGatewayUrl(gateway.port, "/chat", { session: s.key, token: gateway.token });
+          let chatUrl = buildGatewayUrl(gateway.port, "/chat", { session: s.key }, gateway.host);
+          if (gateway.token) chatUrl = buildGatewayUrl(gateway.port, "/chat", { session: s.key, token: gateway.token }, gateway.host);
           return (
             <div
               key={s.key}

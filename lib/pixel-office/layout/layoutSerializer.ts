@@ -67,7 +67,6 @@ export function layoutToFurnitureInstances(furniture: PlacedFurniture[]): Furnit
       }
     }
 
-    // Colorize sprite if this furniture has a color override
     let sprite = entry.sprite
     if (item.color) {
       const { h, s, b: bv, c: cv } = item.color

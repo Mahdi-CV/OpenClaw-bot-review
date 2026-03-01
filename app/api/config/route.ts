@@ -542,7 +542,11 @@ export async function GET() {
       agents: agentsWithStatus,
       providers,
       defaults: { model: defaultModel, fallbacks },
-      gateway: { port: config.gateway?.port || 18789, token: config.gateway?.auth?.token || "" },
+      gateway: {
+        port: config.gateway?.port || 18789,
+        token: config.gateway?.auth?.token || "",
+        host: config.gateway?.host || config.gateway?.hostname || "",
+      },
       groupChats,
     };
     configCache = { data, ts: Date.now() };

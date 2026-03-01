@@ -18,7 +18,7 @@ import { TILE_SIZE } from '@/lib/pixel-office/constants'
 import { TileType, EditTool } from '@/lib/pixel-office/types'
 import type { TileType as TileTypeVal, FloorColor, OfficeLayout } from '@/lib/pixel-office/types'
 import { getCatalogEntry, isRotatable } from '@/lib/pixel-office/layout/furnitureCatalog'
-import { createDefaultLayout, serializeLayout } from '@/lib/pixel-office/layout/layoutSerializer'
+import { createDefaultLayout, migrateLayoutColors, serializeLayout } from '@/lib/pixel-office/layout/layoutSerializer'
 import { playDoneSound, unlockAudio, setSoundEnabled, isSoundEnabled } from '@/lib/pixel-office/notificationSound'
 import { loadCharacterPNGs, loadWallPNG } from '@/lib/pixel-office/sprites/pngLoader'
 import { useI18n } from '@/lib/i18n'
@@ -139,7 +139,7 @@ export default function PixelOfficePage() {
   const agentStatsRef = useRef<Map<string, { sessionCount: number; messageCount: number; totalTokens: number; todayAvgResponseMs: number; weeklyResponseMs: number[]; weeklyTokens: number[]; lastActive: number | null }>>(new Map())
   const contributionsRef = useRef<ContributionData | null>(null)
   const photographRef = useRef<HTMLImageElement | null>(null)
-  const gatewayRef = useRef<{ port: number; token?: string }>({ port: 18789 })
+  const gatewayRef = useRef<{ port: number; token?: string; host?: string }>({ port: 18789 })
   const providersRef = useRef<Array<{ id: string; api: string; models: Array<{ id: string; name: string; contextWindow?: number }>; usedBy: Array<{ id: string; emoji: string; name: string }> }>>([])
   const [isEditMode, setIsEditMode] = useState(cachedIsEditMode)
   const [soundOn, setSoundOn] = useState(true)
@@ -180,8 +180,9 @@ export default function PixelOfficePage() {
         const res = await fetch('/api/pixel-office/layout')
         const data = await res.json()
         if (data.layout) {
-          officeRef.current = new OfficeState(data.layout)
-          savedLayoutRef.current = data.layout
+          const migrated = migrateLayoutColors(data.layout)
+          officeRef.current = new OfficeState(migrated)
+          savedLayoutRef.current = migrated
         } else {
           officeRef.current = new OfficeState()
         }
@@ -477,7 +478,7 @@ export default function PixelOfficePage() {
           }
         }
         agentStatsRef.current = map
-        if (data.gateway) gatewayRef.current = { port: data.gateway.port || 18789, token: data.gateway.token }
+        if (data.gateway) gatewayRef.current = { port: data.gateway.port || 18789, token: data.gateway.token, host: data.gateway.host }
         if (data.providers) providersRef.current = data.providers
       } catch {}
     }
@@ -715,8 +716,8 @@ export default function PixelOfficePage() {
           // Click on PC — open gateway chat for main agent
           const gw = gatewayRef.current
           const sessionKey = 'agent:main:main'
-          let chatUrl = buildGatewayUrl(gw.port, '/chat', { session: sessionKey })
-          if (gw.token) chatUrl = buildGatewayUrl(gw.port, '/chat', { session: sessionKey, token: gw.token })
+          let chatUrl = buildGatewayUrl(gw.port, '/chat', { session: sessionKey }, gw.host)
+          if (gw.token) chatUrl = buildGatewayUrl(gw.port, '/chat', { session: sessionKey, token: gw.token }, gw.host)
           window.open(chatUrl, '_blank')
         } else if (office.layout.furniture.some(f => {
           if (f.uid !== 'library-r') return false
