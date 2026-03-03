@@ -69,6 +69,26 @@ By default, the dashboard reads config from `~/.openclaw/openclaw.json`. To use 
 OPENCLAW_HOME=/opt/openclaw npm run dev
 ```
 
+## Docker Deployment
+
+You can also deploy the dashboard using Docker:
+
+### Build Docker Image
+
+```bash
+docker build -t openclaw-dashboard .
+```
+
+### Run Container
+
+```bash
+# Basic run
+docker run -d -p 3000:3000 openclaw-dashboard
+
+# With custom OpenClaw config path
+docker run -d --name openclaw-dashboard -p 3000:3000 -e OPENCLAW_HOME=/opt/openclaw -v /path/to/openclaw:/opt/openclaw openclaw-dashboard
+```
+
 ---
 
 # OpenClaw Bot Dashboard（中文）
