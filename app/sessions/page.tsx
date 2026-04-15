@@ -242,7 +242,7 @@ function SessionList({ agentId }: { agentId: string }) {
       const res = await fetch("/api/test-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionKey, agentId, port: gateway.port, token: gateway.token }),
+        body: JSON.stringify({ sessionKey, agentId, port: gateway.port }),
       });
       const data = await res.json();
       setTestResults((prev) => ({ ...prev, [sessionKey]: data }));
@@ -291,7 +291,7 @@ function SessionList({ agentId }: { agentId: string }) {
         {sessions.map((s) => {
           const typeInfo = getTypeLabel(s.type);
           let chatUrl = buildGatewayUrl(gateway.port, "/chat", { session: s.key }, gateway.host);
-          if (gateway.token) chatUrl = buildGatewayUrl(gateway.port, "/chat", { session: s.key, token: gateway.token }, gateway.host);
+          if (gateway.hasToken) chatUrl = buildGatewayUrl(gateway.port, "/chat", { session: s.key }, gateway.host);
           return (
             <div
               key={s.key}

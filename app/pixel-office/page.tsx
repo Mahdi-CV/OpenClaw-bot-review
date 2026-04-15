@@ -233,7 +233,7 @@ export default function PixelOfficePage() {
   const configAgentsRef = useRef<Map<string, ConfigAgentCard>>(new Map())
   const contributionsRef = useRef<ContributionData | null>(null)
   const photographRef = useRef<HTMLImageElement | null>(null)
-  const gatewayRef = useRef<{ port: number; token?: string; host?: string }>({ port: 18789 })
+  const gatewayRef = useRef<{ port: number; host?: string }>({ port: 18789 })
   const gatewayHealthyRef = useRef<boolean>(true)
   const gatewaySreRef = useRef<{
     status: GatewaySreState
@@ -867,7 +867,7 @@ export default function PixelOfficePage() {
         }
         agentStatsRef.current = map
         configAgentsRef.current = configMap
-        if (data.gateway) gatewayRef.current = { port: data.gateway.port || 18789, token: data.gateway.token, host: data.gateway.host }
+        if (data.gateway) gatewayRef.current = { port: data.gateway.port || 18789, host: data.gateway.host }
         if (data.providers) {
           providersRef.current = data.providers
           const accessModeMap: Record<string, 'auth' | 'api_key'> = {}
@@ -1183,8 +1183,7 @@ export default function PixelOfficePage() {
           // Click on PC — open gateway chat for main agent
           const gw = gatewayRef.current
           const sessionKey = 'agent:main:main'
-          let chatUrl = buildGatewayUrl(gw.port, '/chat', { session: sessionKey }, gw.host)
-          if (gw.token) chatUrl = buildGatewayUrl(gw.port, '/chat', { session: sessionKey, token: gw.token }, gw.host)
+          const chatUrl = buildGatewayUrl(gw.port, '/chat', { session: sessionKey }, gw.host)
           window.open(chatUrl, '_blank')
         } else if (office.layout.furniture.some(f => {
           if (f.uid !== 'library-r') return false
@@ -1990,7 +1989,6 @@ export default function PixelOfficePage() {
                 <AgentCard
                   agent={cardAgent}
                   gatewayPort={gw.port}
-                  gatewayToken={gw.token}
                   gatewayHost={gw.host}
                   t={t}
                   testResult={cachedModelTestResults?.[selectedAgentId]}

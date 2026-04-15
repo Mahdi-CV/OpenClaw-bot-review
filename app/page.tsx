@@ -665,7 +665,7 @@ export default function Home() {
       {/* 卡片墙 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.agents.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} gatewayPort={data.gateway?.port || 18789} gatewayToken={data.gateway?.token} gatewayHost={data.gateway?.host} t={t} testResult={testResults?.[agent.id]} platformTestResults={platformTestResults || undefined} sessionTestResult={sessionTestResults?.[agent.id]} agentState={agentStates[agent.id]} dmSessionResults={dmSessionResults || undefined} providerAccessModeMap={providerAccessModeMap} modelOptions={modelOptions} onModelChange={changeAgentModel} />
+          <AgentCard key={agent.id} agent={agent} gatewayPort={data.gateway?.port || 18789} gatewayHost={data.gateway?.host} t={t} testResult={testResults?.[agent.id]} platformTestResults={platformTestResults || undefined} sessionTestResult={sessionTestResults?.[agent.id]} agentState={agentStates[agent.id]} dmSessionResults={dmSessionResults || undefined} providerAccessModeMap={providerAccessModeMap} modelOptions={modelOptions} onModelChange={changeAgentModel} />
         ))}
       </div>
 

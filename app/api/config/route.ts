@@ -543,7 +543,7 @@ export async function GET() {
       defaults: { model: defaultModel, fallbacks },
       gateway: {
         port: config.gateway?.port || 18789,
-        token: config.gateway?.auth?.token || "",
+        hasToken: !!(config.gateway?.auth?.token),
         host: config.gateway?.host || config.gateway?.hostname || "",
       },
       groupChats,

@@ -147,7 +147,6 @@ function PlatformBadge({
   platform,
   agentId,
   gatewayPort,
-  gatewayToken,
   gatewayHost,
   t,
   testResult,
@@ -155,7 +154,6 @@ function PlatformBadge({
   platform: AgentPlatform;
   agentId: string;
   gatewayPort: number;
-  gatewayToken?: string;
   gatewayHost?: string;
   t: TFunc;
   testResult?: PlatformTestResult | null;
@@ -212,8 +210,7 @@ function PlatformBadge({
   } else {
     sessionKey = `agent:${agentId}:main`;
   }
-  let sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey }, gatewayHost);
-  if (gatewayToken) sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey, token: gatewayToken }, gatewayHost);
+  const sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey }, gatewayHost);
 
   const badgeStyle = meta?.badgeStyle || "bg-gray-500/20 text-gray-300 border border-gray-500/30 hover:bg-gray-500/40 hover:border-gray-400";
   const translated = t(`platform.${displayName}`);
@@ -351,7 +348,6 @@ function AgentStatusBadge({ state, t }: { state?: string; t: TFunc }) {
 export function AgentCard({
   agent,
   gatewayPort,
-  gatewayToken,
   gatewayHost,
   t,
   testResult,
@@ -365,7 +361,6 @@ export function AgentCard({
 }: {
   agent: AgentCardAgent;
   gatewayPort: number;
-  gatewayToken?: string;
   gatewayHost?: string;
   t: TFunc;
   testResult?: AgentModelTestResult | null;
@@ -382,8 +377,7 @@ export function AgentCard({
   const [isSavingModel, setIsSavingModel] = useState(false);
   const [modelSaveError, setModelSaveError] = useState<string | null>(null);
   const sessionKey = `agent:${agent.id}:main`;
-  let sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey }, gatewayHost);
-  if (gatewayToken) sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey, token: gatewayToken }, gatewayHost);
+  const sessionUrl = buildGatewayUrl(gatewayPort, "/chat", { session: sessionKey }, gatewayHost);
   const modelProvider = agent.model.includes("/") ? agent.model.split("/", 1)[0] : "default";
   const modelAccessMode = providerAccessModeMap?.[modelProvider];
   const canSwitchModel = !!onModelChange && !!modelOptions && modelOptions.length > 0;
@@ -545,7 +539,7 @@ export function AgentCard({
               const dmResult = dmSessionResults ? dmSessionResults[dmKey] : undefined;
               return (
                 <div key={i} className="grid grid-cols-2 items-center gap-2">
-                  <PlatformBadge platform={p} agentId={agent.id} gatewayPort={gatewayPort} gatewayToken={gatewayToken} gatewayHost={gatewayHost} t={t} testResult={pResult} />
+                  <PlatformBadge platform={p} agentId={agent.id} gatewayPort={gatewayPort} gatewayHost={gatewayHost} t={t} testResult={pResult} />
                   <div className="flex justify-end">
                     {dmResult === undefined ? (
                       <span className="text-sm text-[var(--text-muted)]">DM Session: --</span>
