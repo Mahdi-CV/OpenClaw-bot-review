@@ -674,6 +674,10 @@ export function Sidebar() {
                   <div>
                     <div className="text-sm font-bold text-[var(--text)] tracking-wide">OPENCLAW</div>
                     <div className="text-[10px] text-[var(--text-muted)] tracking-wider">BOT DASHBOARD</div>
+                    <div className="mt-1 inline-flex items-center gap-1">
+                      <span className="text-[9px] font-bold tracking-widest px-1.5 py-0.5 rounded" style={{background:'#CC0000',color:'#fff',letterSpacing:'0.12em'}}>AMD</span>
+                      <span className="text-[8px] text-[var(--text-muted)] tracking-wide">powered</span>
+                    </div>
                   </div>
                 </Link>
                 <button

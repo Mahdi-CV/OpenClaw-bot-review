@@ -302,6 +302,93 @@ export function renderScene(
           }
         },
       })
+    } else if (f.uid?.startsWith('painting-')) {
+      // ── AMD logo picture frame ──────────────────────────────────────────────
+      const isLarge = f.uid?.includes('-l') ?? false
+      const fw = (isLarge ? 2 : 1) * TILE_SIZE * zoom
+      const fh = TILE_SIZE * zoom * 0.7
+      drawables.push({
+        zY: f.zY,
+        draw: (c) => {
+          c.save()
+          const x = fx, y = fy
+          const w = fw, h = fh
+          const fr = 2 * zoom // frame border radius
+
+          // Outer wooden frame
+          c.fillStyle = '#5C3A1E'
+          c.beginPath()
+          c.roundRect(x, y, w, h, fr + zoom)
+          c.fill()
+
+          // Inner frame highlight
+          c.fillStyle = '#7A4F2C'
+          c.beginPath()
+          c.roundRect(x + zoom, y + zoom, w - 2*zoom, h - 2*zoom, fr)
+          c.fill()
+
+          // Canvas background (dark, like a framed print)
+          const pad = 3 * zoom
+          const cw = w - pad*2, ch = h - pad*2
+          const cx2 = x + pad, cy2 = y + pad
+          c.fillStyle = '#0D0D0D'
+          c.beginPath()
+          c.roundRect(cx2, cy2, cw, ch, fr * 0.5)
+          c.fill()
+
+          // AMD red background strip (bottom 40% of canvas)
+          const stripH = ch * 0.42
+          c.fillStyle = '#CC0000'
+          c.beginPath()
+          c.roundRect(cx2, cy2 + ch - stripH, cw, stripH, [0, 0, fr*0.5, fr*0.5])
+          c.fill()
+
+          // Draw the AMD arrow/chevron logo (stylised ↗ shape) on left of strip
+          const arrowSize = Math.min(stripH * 0.72, cw * 0.18)
+          const ax = cx2 + arrowSize * 0.55
+          const ay = cy2 + ch - stripH / 2
+          c.strokeStyle = '#FFFFFF'
+          c.lineWidth = Math.max(1, arrowSize * 0.22)
+          c.lineCap = 'round'
+          c.lineJoin = 'round'
+          // Simple angular arrow: zig-zag chevron reminiscent of AMD mark
+          c.beginPath()
+          c.moveTo(ax - arrowSize*0.5, ay + arrowSize*0.45)
+          c.lineTo(ax,               ay - arrowSize*0.45)
+          c.lineTo(ax + arrowSize*0.25, ay + arrowSize*0.1)
+          c.lineTo(ax + arrowSize*0.5, ay - arrowSize*0.45)
+          c.stroke()
+
+          // "AMD" text
+          const textSize = Math.max(7, isLarge ? ch * 0.38 : ch * 0.32)
+          c.font = `900 ${textSize}px sans-serif`
+          c.textAlign = 'center'
+          c.textBaseline = 'middle'
+          c.fillStyle = '#FFFFFF'
+          const textX = cx2 + cw * (isLarge ? 0.62 : 0.6)
+          const textY = cy2 + ch - stripH / 2
+          c.fillText('AMD', textX, textY)
+
+          // Subtle "Powered by" above AMD text area (large only)
+          if (isLarge) {
+            c.font = `400 ${Math.max(5, ch * 0.14)}px sans-serif`
+            c.fillStyle = 'rgba(255,255,255,0.55)'
+            c.textAlign = 'center'
+            c.fillText('POWERED BY', textX, textY - textSize * 0.82)
+          }
+
+          // Top portion: subtle gradient sheen (like a matte print)
+          const sheen = c.createLinearGradient(cx2, cy2, cx2, cy2 + ch - stripH)
+          sheen.addColorStop(0, 'rgba(255,255,255,0.06)')
+          sheen.addColorStop(1, 'rgba(255,255,255,0)')
+          c.fillStyle = sheen
+          c.beginPath()
+          c.roundRect(cx2, cy2, cw, ch - stripH, [fr*0.5, fr*0.5, 0, 0])
+          c.fill()
+
+          c.restore()
+        },
+      })
     } else {
       const cached = getCachedSprite(f.sprite, zoom)
       drawables.push({
