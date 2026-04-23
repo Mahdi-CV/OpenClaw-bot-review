@@ -9,7 +9,7 @@ export const revalidate = 0
 const SESSION_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000
 const MAX_PARENT_SESSIONS_TO_PARSE = 40
 const ORPHAN_FALLBACK_WINDOW_MS = 15 * 60 * 1000
-const SUBAGENT_MAX_ACTIVE_MS = 30 * 60 * 1000
+const SUBAGENT_MAX_ACTIVE_MS = 6 * 60 * 60 * 1000  // 6h — benchmark/analyzer tasks run long
 const SUBAGENT_ACTIVITY_EVENT_LIMIT = 6
 const SUBAGENT_ACTIVITY_TEXT_MAX_LEN = 80
 
@@ -63,6 +63,7 @@ export interface AgentActivity {
   name: string
   emoji: string
   state: 'idle' | 'working' | 'waiting' | 'offline'
+  currentTask?: string
   currentTool?: string
   toolStatus?: string
   lastActive: number
@@ -716,6 +717,163 @@ async function parseSubagents(agentSessionsDir: string, agentId: string): Promis
   return allSubagents
 }
 
+function cleanTaskText(raw: string): string {
+  let cleaned = raw
+  // Strip Sender metadata block: Sender (untrusted metadata): ```json\n{...}\n```\n
+  cleaned = cleaned.replace(/Sender \(untrusted metadata\):\s*```json\s*\{[\s\S]*?\}\s*```\s*/i, '')
+  // Strip timestamp prefix: [2026-04-23 15:44:37 UTC] or [Thu 2026-04-23 15:17 UTC]
+  cleaned = cleaned.replace(/^\[(?:[A-Za-z]{3}\s+)?\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?\s+UTC\]\s*/, '')
+  // Strip trailing newlines and collapse whitespace
+  cleaned = cleaned.replace(/\n+/g, ' ').trim()
+  return cleaned
+}
+
+function isSystemMessage(text: string): boolean {
+  const t = text.trimStart()
+  // System-injected messages: tool results, exec output, middleware noise
+  if (/^System\s*\(untrusted/i.test(t)) return true
+  if (/^\[?\d{4}-\d{2}-\d{2}.*UTC\].*Exec (completed|started|failed)/i.test(t)) return true
+  if (/^Exec (completed|started|failed)/i.test(t)) return true
+  // Next.js route output or middleware noise injected as user messages
+  if (/^ƒ (Proxy|Route|Static)/i.test(t)) return true
+  return false
+}
+
+async function parseMainSessionActivity(
+  agentSessionsDir: string,
+  agentId: string,
+): Promise<{ currentTask?: string; currentTool?: string; toolStatus?: string }> {
+  const sessionsIndexPath = path.join(agentSessionsDir, 'sessions.json')
+  let sessionsIndex: Record<string, any> = {}
+  if (existsSync(sessionsIndexPath)) {
+    try {
+      sessionsIndex = JSON.parse(await fs.readFile(sessionsIndexPath, 'utf8'))
+    } catch { /* ignore */ }
+  }
+
+  // Find the most recently updated parent session file
+  let latestFile: { filePath: string; updatedAt: number } | null = null
+  const cutoff = Date.now() - SESSION_LOOKBACK_MS
+
+  for (const [sessionKey, meta] of Object.entries(sessionsIndex)) {
+    if (sessionKey.includes(':subagent:') || sessionKey.includes(':cron:')) continue
+    const sessionId = meta?.sessionId
+    if (typeof sessionId !== 'string' || !sessionId) continue
+    const filePath = path.join(agentSessionsDir, `${sessionId}.jsonl`)
+    if (!existsSync(filePath)) continue
+    const updatedAt = typeof meta.updatedAt === 'number' ? meta.updatedAt : 0
+    if (updatedAt < cutoff) continue
+    if (!latestFile || updatedAt > latestFile.updatedAt) {
+      latestFile = { filePath, updatedAt }
+    }
+  }
+
+  // Fallback: scan files directly
+  if (!latestFile) {
+    try {
+      const files = await fs.readdir(agentSessionsDir)
+      for (const file of files) {
+        if (!file.endsWith('.jsonl') || file.startsWith('probe-')) continue
+        const stat = await fs.stat(path.join(agentSessionsDir, file))
+        if (stat.mtimeMs < cutoff) continue
+        if (!latestFile || stat.mtimeMs > latestFile.updatedAt) {
+          latestFile = { filePath: path.join(agentSessionsDir, file), updatedAt: stat.mtimeMs }
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (!latestFile) return {}
+
+  try {
+    const content = await fs.readFile(latestFile.filePath, 'utf8')
+    const lines = content.split('\n').filter(l => l.trim())
+
+    let currentTask: string | undefined
+    let currentTool: string | undefined
+    let toolStatus: string | undefined
+    const pendingToolUses = new Map<string, { name: string; input: any }>()
+
+    for (const line of lines) {
+      let record: any
+      try { record = JSON.parse(line) } catch { continue }
+      if (record?.type !== 'message' || !record?.message) continue
+      const msg = record.message
+      const role = typeof msg.role === 'string' ? msg.role : ''
+      const blocks = Array.isArray(msg.content) ? msg.content : []
+
+      if (role === 'assistant') {
+        for (const block of blocks) {
+          if (!block || typeof block !== 'object') continue
+          const b = block as Record<string, unknown>
+          if ((b.type === 'toolCall' || b.type === 'tool_use') && typeof b.id === 'string' && b.id) {
+            const toolName = typeof b.name === 'string' ? b.name : ''
+            pendingToolUses.set(b.id, { name: toolName, input: b.arguments || b.input })
+          }
+          if (b.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
+            // Don't override currentTask — that's from user messages
+          }
+        }
+      }
+
+      if (role === 'toolResult') {
+        const toolCallId = typeof msg.toolCallId === 'string' ? msg.toolCallId : ''
+        const toolName = typeof msg.toolName === 'string' ? msg.toolName : ''
+        const details = isPlainObject(msg.details) ? msg.details : null
+        const status = typeof details?.status === 'string' ? details.status : ''
+        if (toolCallId) {
+          pendingToolUses.delete(toolCallId)
+        }
+        if (toolName === 'exec' && status.toLowerCase() === 'running') {
+          // Exec still running — keep it as current tool
+          const input = pendingToolUses.get(toolCallId)?.input
+          const cmd = typeof input?.command === 'string' ? input.command : 'exec'
+          currentTool = cmd
+          toolStatus = 'running'
+        }
+      }
+
+      if (role === 'user') {
+        const text = blocks
+          .map((b: any) => (b?.type === 'text' && typeof b.text === 'string') ? b.text : '')
+          .join('\n')
+          .trim()
+        if (text && !isSystemMessage(text)) {
+          currentTask = truncateSummary(cleanTaskText(text), 200)
+        }
+        // User message often follows a completed tool result, so clear pending tools
+        // UNLESS the last assistant message had a pending tool
+      }
+    }
+
+    // After scanning all lines, if there are pending tool uses, the agent is waiting
+    const INTERNAL_TOOLS = new Set(['process', 'exit', 'unknown', ''])
+    if (pendingToolUses.size > 0) {
+      const lastPending = Array.from(pendingToolUses.values()).pop()
+      if (lastPending && !INTERNAL_TOOLS.has(lastPending.name)) {
+        currentTool = lastPending.name
+        const input = lastPending.input
+        if (input && typeof input === 'object') {
+          if (typeof input.command === 'string') {
+            currentTool = `${lastPending.name}: ${truncateSummary(input.command, 80)}`
+          } else if (typeof input.task === 'string') {
+            currentTool = `${lastPending.name}: ${truncateSummary(input.task, 80)}`
+          } else if (typeof input.file_path === 'string') {
+            currentTool = `${lastPending.name}: ${input.file_path}`
+          } else if (typeof input.path === 'string') {
+            currentTool = `${lastPending.name}: ${input.path}`
+          }
+        }
+        toolStatus = 'pending'
+      }
+    }
+
+    return { currentTask, currentTool, toolStatus }
+  } catch {
+    return {}
+  }
+}
+
 async function parseCronJobs(agentSessionsDir: string, cronJobsForAgent: CronStoreJob[]): Promise<CronJobInfo[]> {
   if (cronJobsForAgent.length === 0) return []
 
@@ -819,6 +977,7 @@ export async function GET() {
           // Parse subagents for online agents
           let subagents: SubagentInfo[] | undefined
           let cronJobs: CronJobInfo[] | undefined
+          let mainActivity: { currentTask?: string; currentTool?: string; toolStatus?: string } = {}
           if (state !== 'offline' && agentSessionsDir && existsSync(agentSessionsDir)) {
             subagents = await parseSubagents(agentSessionsDir, agent.id)
             if (subagents.length === 0) subagents = undefined
@@ -827,6 +986,7 @@ export async function GET() {
               liveCronJobs.filter((job) => inferCronOwnerAgentId(job) === agent.id),
             )
             if (cronJobs.length === 0) cronJobs = undefined
+            mainActivity = await parseMainSessionActivity(agentSessionsDir, agent.id)
           }
 
           agents.push({
@@ -834,6 +994,9 @@ export async function GET() {
             name: agent.name || agent.id,
             emoji: agent.identity?.emoji || agent.emoji || '🤖',
             state,
+            currentTask: mainActivity.currentTask,
+            currentTool: mainActivity.currentTool,
+            toolStatus: mainActivity.toolStatus,
             lastActive,
             subagents,
             cronJobs,

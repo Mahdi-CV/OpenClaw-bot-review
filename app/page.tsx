@@ -10,6 +10,7 @@ import {
   type PlatformTestResult,
   type AgentModelTestResult,
   type AgentSessionTestResult,
+  type AgentActivityInfo,
 } from "./components/agent-card";
 
 interface Platform {
@@ -694,106 +695,10 @@ export default function Home() {
       {/* 卡片墙 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.agents.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} gatewayPort={data.gateway?.port || 18789} gatewayHost={data.gateway?.host} t={t} testResult={testResults?.[agent.id]} platformTestResults={platformTestResults || undefined} sessionTestResult={sessionTestResults?.[agent.id]} agentState={agentStates[agent.id]} dmSessionResults={dmSessionResults || undefined} providerAccessModeMap={providerAccessModeMap} modelOptions={modelOptions} onModelChange={changeAgentModel} />
+          <AgentCard key={agent.id} agent={agent} gatewayPort={data.gateway?.port || 18789} gatewayHost={data.gateway?.host} t={t} testResult={testResults?.[agent.id]} platformTestResults={platformTestResults || undefined} sessionTestResult={sessionTestResults?.[agent.id]} agentState={agentStates[agent.id]} agentActivity={agentActivity?.find(a => a.agentId === agent.id) as AgentActivityInfo | undefined} dmSessionResults={dmSessionResults || undefined} providerAccessModeMap={providerAccessModeMap} modelOptions={modelOptions} onModelChange={changeAgentModel} />
         ))}
       </div>
 
-      {/* Agent 任務追蹤 */}
-      {agentActivity && agentActivity.some(a => a.state !== "offline") && (
-        <div className="mt-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card)]">
-          <h2 className="text-sm font-semibold text-[var(--text-muted)] mb-3">📋 {t("home.agentTaskTracking")}</h2>
-          <div className="space-y-2">
-            {agentActivity
-              .filter(a => a.state !== "offline")
-              .map(agent => (
-                <div key={agent.agentId} className="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg)] border border-[var(--border)]">
-                  <span className="text-lg leading-none mt-0.5">{agent.emoji || "🤖"}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-[var(--text)]">{agent.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        agent.state === "working" ? "bg-emerald-500/20 text-emerald-400" :
-                        agent.state === "waiting" ? "bg-amber-500/20 text-amber-400" :
-                        "bg-[var(--border)] text-[var(--text-muted)]"
-                      }`}>
-                        {agent.state === "working"
-                          ? t("home.agentTaskState.working")
-                          : agent.state === "waiting"
-                            ? t("home.agentTaskState.waiting")
-                            : t("home.agentTaskState.idle")}
-                      </span>
-                    </div>
-                    {agent.subagents && agent.subagents.length > 0 ? (
-                      <div className="space-y-1">
-                        <div className="text-[10px] uppercase tracking-wide opacity-60">{t("home.agentTaskSubtasks")}</div>
-                        {agent.subagents.map((sub, i) => (
-                          <div key={i} className="text-xs text-[var(--text-muted)]">
-                            <span className="text-[var(--accent)] mr-1">↳</span>
-                            <span className="font-medium text-[var(--text)]">{sub.label}</span>
-                            {sub.activityEvents && sub.activityEvents.length > 0 && (
-                              <span className="ml-2 opacity-70">— {sub.activityEvents[sub.activityEvents.length - 1].text}</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-[var(--text-muted)] opacity-60">{t("home.agentTaskNoSubtasks")}</div>
-                    )}
-                    {agent.cronJobs && agent.cronJobs.length > 0 ? (
-                      <div className="space-y-1 mt-2 pt-2 border-t border-[var(--border)]">
-                        <div className="text-[10px] uppercase tracking-wide opacity-60">{t("home.agentTaskCron")}</div>
-                        {agent.cronJobs.map((cron) => (
-                          <div key={cron.key} className="text-xs text-[var(--text-muted)]">
-                            <div className="flex items-center gap-2">
-                              <span className="text-yellow-400">⏰</span>
-                              <span className="font-medium text-[var(--text)]">{cron.label}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                                cron.lastStatus === "running"
-                                  ? "bg-sky-500/20 text-sky-400"
-                                  : cron.lastStatus === "failed"
-                                    ? "bg-red-500/20 text-red-400"
-                                    : "bg-emerald-500/20 text-emerald-400"
-                              }`}>
-                                {cron.lastStatus === "running"
-                                  ? t("home.agentTaskCronState.running")
-                                  : cron.lastStatus === "failed"
-                                    ? t("home.agentTaskCronState.failed")
-                                    : t("home.agentTaskCronState.success")}
-                              </span>
-                              {cron.consecutiveFailures > 0 && (
-                                <span className="text-[10px] text-red-400">
-                                  {t("home.agentTaskCronFailures")} {cron.consecutiveFailures}
-                                </span>
-                              )}
-                            </div>
-                            <div className="ml-5 opacity-70">
-                              {cron.lastSummary || t("home.agentTaskCronNoSummary")}
-                            </div>
-                            <div className="ml-5 mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] opacity-60">
-                              {cron.durationMs !== undefined && (
-                                <span>{t("home.agentTaskCronDuration")} {Math.max(1, Math.round(cron.durationMs / 1000))}s</span>
-                              )}
-                              {cron.nextRunAt ? (
-                                <span>
-                                  {t("home.agentTaskCronNextRun")} {new Date(cron.nextRunAt).toLocaleTimeString(locale === "zh" ? "zh-CN" : locale, { hour: "2-digit", minute: "2-digit" })}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-[var(--text-muted)] opacity-60 mt-2">{t("home.agentTaskNoCron")}</div>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">
-                    {agent.lastActive ? new Date(agent.lastActive).toLocaleTimeString(locale === "zh" ? "zh-CN" : locale, { hour: "2-digit", minute: "2-digit" }) : ""}
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
 
       {/* 汇总统计趋势 */}
       {allStats && (

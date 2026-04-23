@@ -34,6 +34,7 @@ interface GatewayInfo {
   port: number;
   token?: string;
   host?: string;
+  hasToken?: boolean;
 }
 
 const TYPE_EMOJI_COLOR: Record<string, { emoji: string; color: string }> = {

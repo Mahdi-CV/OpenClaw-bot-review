@@ -353,9 +353,9 @@ function getTempWorkerLabel(locale: OfficeLocale): string {
   return '临时工'
 }
 function getGatewaySreLabel(locale: OfficeLocale): string {
-  if (locale === 'zh-TW') return '值班工程師'
-  if (locale === 'en') return 'On-Call SRE'
-  return '值班SRE'
+  if (locale === 'zh-TW') return 'Gateway'
+  if (locale === 'en') return 'Gateway'
+  return 'Gateway'
 }
 const SUBAGENT_PRIORITY_SEAT_IDS = [
   'stool-r1', 'stool-r2', 'stool-r3', 'stool-r4',
@@ -364,7 +364,7 @@ const SUBAGENT_PRIORITY_SEAT_IDS = [
 const SUBAGENT_SPAWN_CENTER_COL = 10
 const SUBAGENT_SPAWN_CENTER_ROW = 14
 const SUBAGENT_RUN_SPEED_MULTIPLIER = 2.8
-const GATEWAY_SRE_LABEL = '值班SRE'
+const GATEWAY_SRE_LABEL = 'Gateway'
 const GATEWAY_SRE_STANDBY_COL = 2
 const GATEWAY_SRE_STANDBY_ROW = 14
 const GATEWAY_SRE_RESCUE_CANDIDATES = [
@@ -1512,6 +1512,21 @@ export class OfficeState {
     }
   }
 
+  /** Push a snippet sourced from real agent activity (currentTask / currentTool).
+   *  While real snippets are present the random code-snippet spawner stays quiet. */
+  pushRealActivitySnippet(charId: number, text: string): void {
+    const ch = this.characters.get(charId)
+    if (!ch || ch.isCat || ch.isLobster || ch.isSubagent) return
+    const compact = text.replace(/\s+/g, ' ').trim()
+    if (!compact) return
+    // Skip if the same text is already showing
+    if (ch.codeSnippets.some((s: any) => s.text === compact || s.text === compact.slice(0, 89) + '…')) return
+    const truncated = compact.length > 90 ? `${compact.slice(0, 89)}…` : compact
+    // Evict oldest snippet to make room for the real one
+    if (ch.codeSnippets.length >= 2) ch.codeSnippets = ch.codeSnippets.slice(-1)
+    ch.codeSnippets.push({ text: truncated, age: 0, x: (Math.random() - 0.5) * 20, y: 0, real: true } as any)
+  }
+
   /** Dismiss bubble on click — permission: instant, waiting: quick fade */
   dismissBubble(id: number): void {
     const ch = this.characters.get(id)
@@ -1630,8 +1645,9 @@ export class OfficeState {
           })
         }
       } else if (ch.isActive && ch.state === CharacterState.TYPE && !ch.isCat && !ch.isLobster && !ch.isSubagent) {
-        // Spawn new snippet randomly
-        if (ch.codeSnippets.length < 2 && Math.random() < dt * CODE_SNIPPET_SPAWN_RATE) {
+        // Spawn random snippet only when no real activity text is currently showing
+        const hasRealSnippet = ch.codeSnippets.some((s: any) => s.real)
+        if (!hasRealSnippet && ch.codeSnippets.length < 2 && Math.random() < dt * CODE_SNIPPET_SPAWN_RATE) {
           ch.codeSnippets.push({
             text: getCodeSnippets(this.locale)[Math.floor(Math.random() * getCodeSnippets(this.locale).length)],
             age: 0,

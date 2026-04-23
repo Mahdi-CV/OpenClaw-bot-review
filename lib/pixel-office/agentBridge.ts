@@ -13,6 +13,7 @@ export interface AgentActivity {
   name: string
   emoji: string
   state: 'idle' | 'working' | 'waiting' | 'offline'
+  currentTask?: string
   currentTool?: string
   toolStatus?: string
   lastActive: number
@@ -24,6 +25,8 @@ const prevSubagentKeys = new Map<string, Set<string>>()
 
 /** Track previous agent states to detect offline→working transitions */
 const prevAgentStates = new Map<string, string>()
+/** Track last real snippet text pushed per agent to avoid duplicates */
+const lastRealSnippet = new Map<string, string>()
 
 export function syncAgentsToOffice(
   activities: AgentActivity[],
@@ -83,10 +86,23 @@ export function syncAgentsToOffice(
       case 'working':
         office.setAgentActive(charId, true)
         office.setAgentTool(charId, activity.currentTool || null)
+        // Push real activity text as speech bubble (prefer task over tool name)
+        {
+          const bubbleText = activity.currentTask
+            ? activity.currentTask.slice(0, 80)
+            : activity.currentTool
+              ? activity.currentTool.slice(0, 80)
+              : null
+          if (bubbleText && lastRealSnippet.get(activity.agentId) !== bubbleText) {
+            lastRealSnippet.set(activity.agentId, bubbleText)
+            office.pushRealActivitySnippet(charId, bubbleText)
+          }
+        }
         break
       case 'idle':
         office.setAgentActive(charId, false)
         office.setAgentTool(charId, null)
+        lastRealSnippet.delete(activity.agentId)
         break
       case 'waiting':
         office.setAgentActive(charId, true)

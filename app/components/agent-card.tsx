@@ -61,6 +61,18 @@ export interface AgentSessionTestResult {
   elapsed: number;
 }
 
+export interface AgentActivityInfo {
+  state: "idle" | "working" | "waiting" | "offline";
+  currentTask?: string;
+  currentTool?: string;
+  toolStatus?: string;
+  subagents?: Array<{
+    toolId: string;
+    label: string;
+    activityEvents?: Array<{ key: string; text: string; at: number }>;
+  }>;
+}
+
 type TFunc = (key: string) => string;
 
 function formatTokens(n: number): string {
@@ -354,6 +366,7 @@ export function AgentCard({
   platformTestResults,
   sessionTestResult,
   agentState,
+  agentActivity,
   dmSessionResults,
   providerAccessModeMap,
   modelOptions,
@@ -367,6 +380,7 @@ export function AgentCard({
   platformTestResults?: Record<string, PlatformTestResult | null>;
   sessionTestResult?: AgentSessionTestResult | null;
   agentState?: string;
+  agentActivity?: AgentActivityInfo;
   dmSessionResults?: Record<string, PlatformTestResult | null>;
   providerAccessModeMap?: Record<string, "auth" | "api_key">;
   modelOptions?: AgentModelOptionGroup[];
@@ -429,6 +443,41 @@ export function AgentCard({
         </div>
         <AgentStatusBadge state={agentState} t={t} />
       </div>
+
+      {/* Live activity strip */}
+      {agentActivity && (agentActivity.currentTask || agentActivity.currentTool || (agentActivity.subagents && agentActivity.subagents.length > 0)) && (
+        <div className="mt-1.5 mb-0.5 rounded-lg bg-[var(--bg)] border border-[var(--border)] px-2.5 py-2 space-y-1 text-xs">
+          {agentActivity.currentTask && (
+            <div className="flex gap-1.5 items-start">
+              <span className="text-emerald-400 shrink-0 font-semibold mt-px">Task</span>
+              <span className="text-[var(--text)] leading-snug line-clamp-2" title={agentActivity.currentTask}>{agentActivity.currentTask}</span>
+            </div>
+          )}
+          {agentActivity.currentTool && (
+            <div className="flex gap-1.5 items-start">
+              <span className="text-[var(--accent)] shrink-0 mt-px">▶</span>
+              <span className="text-[var(--text-muted)] font-mono truncate" title={agentActivity.currentTool}>{agentActivity.currentTool}</span>
+              {agentActivity.toolStatus && <span className="shrink-0 text-[var(--text-muted)] opacity-60">— {agentActivity.toolStatus}</span>}
+            </div>
+          )}
+          {agentActivity.subagents && agentActivity.subagents.length > 0 && (
+            <div className="space-y-0.5 pl-2 border-l border-[var(--border)]">
+              {agentActivity.subagents.slice(0, 3).map((sub, i) => (
+                <div key={i} className="text-[var(--text-muted)] flex items-start gap-1">
+                  <span className="text-[var(--accent)] shrink-0">↳</span>
+                  <span className="font-medium text-[var(--text)] shrink-0">{sub.label}</span>
+                  {sub.activityEvents && sub.activityEvents.length > 0 && (
+                    <span className="opacity-60 truncate">— {sub.activityEvents[sub.activityEvents.length - 1].text}</span>
+                  )}
+                </div>
+              ))}
+              {agentActivity.subagents.length > 3 && (
+                <div className="text-[var(--text-muted)] opacity-50">+{agentActivity.subagents.length - 3} more</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-1">
         <div>

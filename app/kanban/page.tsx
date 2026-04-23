@@ -38,6 +38,7 @@ interface AgentActivity {
   name: string;
   emoji: string;
   state: "idle" | "working" | "waiting" | "offline";
+  currentTask?: string;
   currentTool?: string;
   toolStatus?: string;
   lastActive: number;
@@ -90,20 +91,23 @@ function timeAgo(lastActive: number): string {
 }
 
 function KanbanCard({ activity, agent }: { activity: AgentActivity; agent?: Agent }) {
+  const [expanded, setExpanded] = useState(false);
   const col = (Object.keys(COLUMN_CONFIG) as KanbanColumn[]).find((c) =>
     COLUMN_CONFIG[c].states.includes(activity.state)
   ) ?? "offline";
   const { borderColor, dotColor } = COLUMN_CONFIG[col];
 
   const activeSubagents = activity.subagents?.filter((s) => s.label) ?? [];
-  const runningCrons = activity.cronJobs?.filter((c) => c.isRunning || c.lastStatus === "running") ?? [];
+  const allCrons = activity.cronJobs ?? [];
+  const runningCrons = allCrons.filter((c) => c.isRunning || c.lastStatus === "running");
   const totalTokens = agent?.session?.totalTokens ?? 0;
   const model = agent?.model ?? "";
   const modelShort = model.includes("/") ? model.split("/").slice(1).join("/") : model;
 
   return (
     <div
-      className={`rounded-xl border border-[var(--border)] border-l-4 ${borderColor} bg-[var(--card)] p-3 space-y-2 hover:border-[var(--accent)]/50 transition-colors`}
+      className={`rounded-xl border border-[var(--border)] border-l-4 ${borderColor} bg-[var(--card)] p-3 space-y-2 hover:border-[var(--accent)]/50 transition-colors cursor-pointer overflow-hidden`}
+      onClick={() => setExpanded(!expanded)}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
@@ -128,6 +132,14 @@ function KanbanCard({ activity, agent }: { activity: AgentActivity; agent?: Agen
         </div>
       </div>
 
+      {/* Last task hint for idle/offline */}
+      {col !== "working" && activity.currentTask && (
+        <div className="text-xs text-[var(--text-muted)] leading-snug line-clamp-2" title={activity.currentTask}>
+          <span className="opacity-50">Last:</span>{" "}
+          <span className="text-[var(--text)]">{activity.currentTask.slice(0, 120)}{activity.currentTask.length > 120 ? "…" : ""}</span>
+        </div>
+      )}
+
       {/* Current task / subagents */}
       {col === "working" && (
         <div className="space-y-1">
@@ -135,26 +147,38 @@ function KanbanCard({ activity, agent }: { activity: AgentActivity; agent?: Agen
             <div className="text-xs text-amber-400 flex items-center gap-1">
               <span>⏳</span> Waiting for input
             </div>
-          ) : activity.currentTool ? (
-            <div className="text-xs text-[var(--text-muted)]">
-              <span className="text-[var(--accent)]">▶</span>{" "}
-              <span className="font-medium text-[var(--text)]">{activity.currentTool}</span>
-              {activity.toolStatus && (
-                <span className="ml-1 opacity-70">— {activity.toolStatus}</span>
-              )}
+          ) : activity.currentTask ? (
+            <div className="text-xs text-[var(--text-muted)] leading-snug overflow-hidden">
+              <span className="text-emerald-400 font-semibold">Task: </span>
+              <span className="text-[var(--text)] break-words">
+                {expanded ? activity.currentTask : activity.currentTask.slice(0, 100) + (activity.currentTask.length > 100 ? "…" : "")}
+              </span>
             </div>
           ) : null}
+          {activity.currentTool && (
+            <div className="text-xs text-[var(--text-muted)] flex items-baseline gap-1 overflow-hidden">
+              <span className="text-[var(--accent)] shrink-0">▶</span>
+              <span className="font-medium text-[var(--text)] truncate min-w-0">
+                {expanded ? activity.currentTool : activity.currentTool.slice(0, 80) + (activity.currentTool.length > 80 ? "…" : "")}
+              </span>
+              {activity.toolStatus && (
+                <span className="shrink-0 opacity-70">— {activity.toolStatus}</span>
+              )}
+            </div>
+          )}
           {activeSubagents.length > 0 && (
-            <div className="space-y-0.5 pl-2 border-l border-[var(--border)]">
+            <div className="space-y-0.5 pl-2 border-l border-[var(--border)] overflow-hidden">
               {activeSubagents.map((sub, i) => (
-                <div key={i} className="text-xs text-[var(--text-muted)]">
-                  <span className="text-[var(--accent)] mr-1">↳</span>
-                  <span className="font-medium text-[var(--text)]">{sub.label}</span>
-                  {sub.activityEvents && sub.activityEvents.length > 0 && (
-                    <span className="ml-1 opacity-60 truncate">
-                      — {sub.activityEvents[sub.activityEvents.length - 1].text}
-                    </span>
-                  )}
+                <div key={i} className="text-xs text-[var(--text-muted)] overflow-hidden">
+                  <div className="flex items-baseline gap-1 min-w-0">
+                    <span className="text-[var(--accent)] shrink-0">↳</span>
+                    <span className="font-medium text-[var(--text)] truncate shrink-0 max-w-[40%]">{sub.label}</span>
+                    {sub.activityEvents && sub.activityEvents.length > 0 && (
+                      <span className="opacity-60 truncate min-w-0">
+                        — {sub.activityEvents[sub.activityEvents.length - 1].text}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -173,6 +197,83 @@ function KanbanCard({ activity, agent }: { activity: AgentActivity; agent?: Agen
           {!activity.currentTool && activeSubagents.length === 0 && runningCrons.length === 0 && activity.state !== "waiting" && (
             <div className="text-xs text-[var(--text-muted)] opacity-60">Processing…</div>
           )}
+        </div>
+      )}
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="pt-2 border-t border-[var(--border)] space-y-2 text-xs">
+          {/* Full current task */}
+          {activity.currentTask && activity.currentTask.length > 100 && (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Full Task</div>
+              <div className="text-[var(--text)] whitespace-pre-wrap">{activity.currentTask}</div>
+            </div>
+          )}
+
+          {/* Full current tool */}
+          {activity.currentTool && activity.currentTool.length > 80 && (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Current Tool</div>
+              <code className="text-[var(--text)] bg-[var(--border)] px-1.5 py-1 rounded block whitespace-pre-wrap">{activity.currentTool}</code>
+              {activity.toolStatus && (
+                <div className="text-emerald-400">Status: {activity.toolStatus}</div>
+              )}
+            </div>
+          )}
+
+          {/* All subagents with full history */}
+          {activity.subagents && activity.subagents.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Subagents ({activity.subagents.length})</div>
+              {activity.subagents.map((sub, i) => (
+                <div key={i} className="pl-2 border-l-2 border-[var(--accent)] space-y-1">
+                  <div className="font-medium text-[var(--text)]">{sub.label}</div>
+                  {sub.activityEvents && sub.activityEvents.length > 0 ? (
+                    <div className="space-y-0.5">
+                      {sub.activityEvents.slice(-10).map((ev, j) => (
+                        <div key={j} className="text-[var(--text-muted)]">
+                          <span className="opacity-50">{timeAgo(ev.at)}</span> {ev.text}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[var(--text-muted)] opacity-50">No recent activity</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* All cron jobs */}
+          {allCrons.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Cron Jobs ({allCrons.length})</div>
+              {allCrons.map((cron, i) => (
+                <div key={i} className="flex items-center gap-2 pl-2 border-l-2 border-sky-400">
+                  <span className={`w-1.5 h-1.5 rounded-full ${cron.isRunning ? 'bg-sky-400 animate-pulse' : cron.lastStatus === 'failed' ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[var(--text)] truncate">{cron.label}</div>
+                    <div className="text-[var(--text-muted)] opacity-70">
+                      {cron.isRunning ? 'running' : cron.lastStatus} · {timeAgo(cron.lastRunAt)}
+                      {cron.durationMs && ` · ${Math.round(cron.durationMs / 1000)}s`}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Agent link */}
+          <div className="pt-1">
+            <a
+              href={`/sessions?agent=${activity.agentId}`}
+              className="text-[var(--accent)] hover:underline inline-flex items-center gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              → View sessions
+            </a>
+          </div>
         </div>
       )}
 
