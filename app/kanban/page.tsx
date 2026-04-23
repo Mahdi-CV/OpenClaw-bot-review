@@ -90,6 +90,32 @@ function timeAgo(lastActive: number): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+
+function TaskText({ text, className }: { text: string; className?: string }) {
+  const urlMatch = text.match(/^(https?:\/\/[^\s]+)(.*)$/)
+  if (urlMatch) {
+    const url = urlMatch[1]
+    const rest = urlMatch[2].trim()
+    const display = url.replace(/^https?:\/\//, '')
+    return (
+      <span className={className}>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-[var(--accent)] hover:underline font-mono text-[11px]"
+          title={url}
+        >
+          {display}
+        </a>
+        {rest && <span className="ml-1">{rest}</span>}
+      </span>
+    )
+  }
+  return <span className={className}>{text}</span>
+}
+
 function KanbanCard({ activity, agent }: { activity: AgentActivity; agent?: Agent }) {
   const [expanded, setExpanded] = useState(false);
   const col = (Object.keys(COLUMN_CONFIG) as KanbanColumn[]).find((c) =>
@@ -136,7 +162,7 @@ function KanbanCard({ activity, agent }: { activity: AgentActivity; agent?: Agen
       {col !== "working" && activity.currentTask && (
         <div className="text-xs text-[var(--text-muted)] leading-snug line-clamp-2" title={activity.currentTask}>
           <span className="opacity-50">Last:</span>{" "}
-          <span className="text-[var(--text)]">{activity.currentTask.slice(0, 120)}{activity.currentTask.length > 120 ? "…" : ""}</span>
+          <TaskText text={activity.currentTask.slice(0, 120) + (activity.currentTask.length > 120 ? "…" : "")} className="text-[var(--text)]" />
         </div>
       )}
 
@@ -150,9 +176,10 @@ function KanbanCard({ activity, agent }: { activity: AgentActivity; agent?: Agen
           ) : activity.currentTask ? (
             <div className="text-xs text-[var(--text-muted)] leading-snug overflow-hidden">
               <span className="text-emerald-400 font-semibold">Task: </span>
-              <span className="text-[var(--text)] break-words">
-                {expanded ? activity.currentTask : activity.currentTask.slice(0, 100) + (activity.currentTask.length > 100 ? "…" : "")}
-              </span>
+              <TaskText
+                text={expanded ? activity.currentTask : activity.currentTask.slice(0, 100) + (activity.currentTask.length > 100 ? "…" : "")}
+                className="text-[var(--text)] break-words"
+              />
             </div>
           ) : null}
           {activity.currentTool && (

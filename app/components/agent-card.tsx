@@ -357,6 +357,32 @@ function AgentStatusBadge({ state, t }: { state?: string; t: TFunc }) {
   );
 }
 
+
+function TaskText({ text, className }: { text: string; className?: string }) {
+  const urlMatch = text.match(/^(https?:\/\/[^\s]+)(.*)$/)
+  if (urlMatch) {
+    const url = urlMatch[1]
+    const rest = urlMatch[2].trim()
+    const display = url.replace(/^https?:\/\//, '')
+    return (
+      <span className={className}>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-[var(--accent)] hover:underline font-mono text-[11px]"
+          title={url}
+        >
+          {display}
+        </a>
+        {rest && <span className="ml-1">{rest}</span>}
+      </span>
+    )
+  }
+  return <span className={className}>{text}</span>
+}
+
 export function AgentCard({
   agent,
   gatewayPort,
@@ -450,7 +476,7 @@ export function AgentCard({
           {agentActivity.currentTask && (
             <div className="flex gap-1.5 items-start">
               <span className="text-emerald-400 shrink-0 font-semibold mt-px">Task</span>
-              <span className="text-[var(--text)] leading-snug line-clamp-2" title={agentActivity.currentTask}>{agentActivity.currentTask}</span>
+              <TaskText text={agentActivity.currentTask} className="text-[var(--text)] leading-snug line-clamp-2" />
             </div>
           )}
           {agentActivity.currentTool && (
