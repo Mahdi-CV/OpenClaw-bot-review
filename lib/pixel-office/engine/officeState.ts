@@ -905,53 +905,16 @@ export class OfficeState {
   }
 
   private updateGatewaySreCharacter(ch: Character, dt: number): void {
-    ch.isActive = false
-    ch.seatId = null
+    ch.isSystemRole = true
     ch.systemRoleType = 'gateway_sre'
     ch.systemStatus = this.gatewaySreStatus
-    const patrolTiles = this.getGatewaySrePatrolTiles()
-    const rescuePoint = this.getGatewaySreRescuePoint(patrolTiles)
-    const degradedTiles = this.getGatewaySreDegradedTiles(patrolTiles, rescuePoint)
-
-    if (this.gatewaySreStatus === 'unknown') {
-      ch.moveSpeedMultiplier = 1
-      ch.path = []
-      ch.moveProgress = 0
-      ch.state = CharacterState.IDLE
-      ch.frame = 0
-      ch.frameTimer = 0
-      ch.wanderTimer = 5
-      return
-    }
-
-    if (this.gatewaySreStatus === 'down') {
-      ch.moveSpeedMultiplier = 2.2
-      const atRescue = ch.tileCol === rescuePoint.col && ch.tileRow === rescuePoint.row
-      const last = ch.path[ch.path.length - 1]
-      if (!atRescue && (!last || last.col !== rescuePoint.col || last.row !== rescuePoint.row)) {
-        this.withOwnSeatUnblocked(ch, () => this.forceWalkTo(ch, rescuePoint.col, rescuePoint.row))
-      }
-      this.withOwnSeatUnblocked(ch, () =>
-        updateCharacter(ch, dt, [rescuePoint], this.seats, this.tileMap, this.blockedTiles, [])
-      )
-      // Hold at server front and face the server.
-      if (ch.tileCol === rescuePoint.col && ch.tileRow === rescuePoint.row) {
-        ch.path = []
-        ch.moveProgress = 0
-        ch.state = CharacterState.IDLE
-        ch.frame = 0
-        ch.frameTimer = 0
-        ch.wanderTimer = 2
-        ch.dir = Direction.UP
-      }
-      return
-    }
-
-    ch.moveSpeedMultiplier = this.gatewaySreStatus === 'degraded' ? 1.4 : 0.9
-    const scope = this.gatewaySreStatus === 'degraded' ? degradedTiles : patrolTiles
-    this.withOwnSeatUnblocked(ch, () =>
-      updateCharacter(ch, dt, scope, this.seats, this.tileMap, this.blockedTiles, [])
-    )
+    // Gateway is a static object — keep it pinned at its standby position
+    ch.state = CharacterState.IDLE
+    ch.isActive = false
+    ch.tileCol = GATEWAY_SRE_STANDBY_COL
+    ch.tileRow = GATEWAY_SRE_STANDBY_ROW
+    ch.x = GATEWAY_SRE_STANDBY_COL * TILE_SIZE + TILE_SIZE / 2
+    ch.y = GATEWAY_SRE_STANDBY_ROW * TILE_SIZE + TILE_SIZE / 2
   }
 
   private getFirstIdleHumanoid(): Character | null {

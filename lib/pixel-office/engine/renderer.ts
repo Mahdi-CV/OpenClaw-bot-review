@@ -459,6 +459,115 @@ export function renderScene(
       continue
     }
 
+    // ── Gateway: draw as a static wall-mounted box, not a human sprite ──
+    if (ch.systemRoleType === 'gateway_sre') {
+      const now = Date.now()
+      const gw = ch
+      const gwState = gw.systemStatus ?? 'unknown'
+      const cx = Math.round(offsetX + ch.x * zoom)
+      const cy = Math.round(offsetY + ch.y * zoom)
+      // Box dimensions (in canvas pixels)
+      const bw = Math.round(14 * zoom)
+      const bh = Math.round(10 * zoom)
+      const bx = cx - bw / 2
+      const by = cy - bh
+      // Label
+      const fontSize = Math.max(12, Math.round(5.25 * zoom))
+      const labelX = cx
+      const labelY = by - 2 * zoom
+      // Status LED pulse
+      let ledColor = '#9CA3AF'
+      let ledAlpha = 1.0
+      if (gwState === 'healthy') {
+        ledAlpha = 0.65 + 0.3 * ((Math.sin(now / 760) + 1) / 2)
+        ledColor = `rgba(52,211,153,${ledAlpha})`
+      } else if (gwState === 'degraded') {
+        ledAlpha = 0.45 + 0.55 * ((Math.sin(now / 220) + 1) / 2)
+        ledColor = `rgba(251,191,36,${ledAlpha})`
+      } else if (gwState === 'down') {
+        ledAlpha = 0.28 + 0.72 * ((Math.sin(now / 110) + 1) / 2)
+        ledColor = `rgba(239,68,68,${ledAlpha})`
+      }
+      const labelColorStr = gwState === 'healthy'
+        ? `rgba(52,211,153,${0.65 + 0.3 * ((Math.sin(now / 760) + 1) / 2)})`
+        : gwState === 'degraded'
+          ? `rgba(251,191,36,${0.45 + 0.55 * ((Math.sin(now / 220) + 1) / 2)})`
+          : gwState === 'down'
+            ? `rgba(239,68,68,${0.28 + 0.72 * ((Math.sin(now / 110) + 1) / 2)})`
+            : '#9CA3AF'
+
+      drawables.push({
+        zY: charZY,
+        draw: (c) => {
+          c.save()
+          // ── Chassis body ──
+          c.fillStyle = '#1E2030'
+          c.fillRect(bx, by, bw, bh)
+          // Slightly lighter top edge (3D bevel)
+          c.fillStyle = '#2E3250'
+          c.fillRect(bx, by, bw, Math.max(1, zoom))
+          // ── Port slots (3 small horizontal lines) ──
+          const slotH = Math.max(1, Math.round(zoom * 0.8))
+          const slotW = Math.round(bw * 0.45)
+          const slotX = bx + Math.round(bw * 0.08)
+          c.fillStyle = '#0D0F1A'
+          for (let s = 0; s < 3; s++) {
+            const slotY = by + Math.round(bh * (0.2 + s * 0.25))
+            c.fillRect(slotX, slotY, slotW, slotH)
+          }
+          // ── Status LED ──
+          const ledR = Math.max(1.5, zoom * 1.2)
+          const ledX = bx + Math.round(bw * 0.82)
+          const ledY = by + Math.round(bh * 0.3)
+          c.fillStyle = ledColor
+          c.beginPath()
+          c.arc(ledX, ledY, ledR, 0, Math.PI * 2)
+          c.fill()
+          // LED glow
+          if (gwState !== 'unknown') {
+            c.globalAlpha = ledAlpha * 0.3
+            c.beginPath()
+            c.arc(ledX, ledY, ledR * 2.5, 0, Math.PI * 2)
+            c.fill()
+            c.globalAlpha = 1
+          }
+          // ── Label ──
+          if (gw.label) {
+            c.font = `bold ${fontSize}px sans-serif`
+            c.textAlign = 'center'
+            c.textBaseline = 'bottom'
+            const textW = c.measureText(gw.label).width
+            const padX = 4 * zoom
+            const padY = 2 * zoom
+            const lbx = labelX - textW / 2 - padX
+            const lby = labelY - fontSize - padY
+            const lbw = textW + padX * 2
+            const lbh = fontSize + padY * 2
+            const r = 3 * zoom
+            c.beginPath()
+            c.moveTo(lbx + r, lby)
+            c.lineTo(lbx + lbw - r, lby)
+            c.arcTo(lbx + lbw, lby, lbx + lbw, lby + r, r)
+            c.lineTo(lbx + lbw, lby + lbh - r)
+            c.arcTo(lbx + lbw, lby + lbh, lbx + lbw - r, lby + lbh, r)
+            c.lineTo(lbx + r, lby + lbh)
+            c.arcTo(lbx, lby + lbh, lbx, lby + lbh - r, r)
+            c.lineTo(lbx, lby + r)
+            c.arcTo(lbx, lby, lbx + r, lby, r)
+            c.closePath()
+            c.fillStyle = 'rgba(0,0,0,0.55)'
+            c.fill()
+            c.fillStyle = 'rgba(0,0,0,0.9)'
+            c.fillText(gw.label, labelX, labelY + 1)
+            c.fillStyle = labelColorStr
+            c.fillText(gw.label, labelX, labelY)
+          }
+          c.restore()
+        },
+      })
+      continue
+    }
+
     const sprites = ch.isCat ? getCatSprites() : getCharacterSprites(ch.palette, ch.hueShift)
     const spriteData = getCharacterSprite(ch, sprites)
     const cached = getCachedSprite(spriteData, zoom)
@@ -526,21 +635,7 @@ export function renderScene(
       let labelColor = ch.isSubagent
         ? (isWorking ? `rgba(220,38,38,${labelAlpha})` : '#991B1B')
         : (isWorking ? `rgba(34,197,94,${labelAlpha})` : '#FFD700')
-      if (ch.systemRoleType === 'gateway_sre') {
-        const state = ch.systemStatus ?? 'unknown'
-        if (state === 'healthy') {
-          const alpha = 0.65 + 0.3 * ((Math.sin(now / 760) + 1) / 2)
-          labelColor = `rgba(34,197,94,${alpha})`
-        } else if (state === 'degraded') {
-          const alpha = 0.45 + 0.55 * ((Math.sin(now / 220) + 1) / 2)
-          labelColor = `rgba(250,204,21,${alpha})`
-        } else if (state === 'down') {
-          const alpha = 0.28 + 0.72 * ((Math.sin(now / 110) + 1) / 2)
-          labelColor = `rgba(153,27,27,${alpha})`
-        } else {
-          labelColor = '#9CA3AF'
-        }
-      }
+      // gateway_sre label rendered in its own drawing block above
       drawables.push({
         zY: charZY + 0.1,
         draw: (c) => {
