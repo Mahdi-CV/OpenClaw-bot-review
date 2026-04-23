@@ -662,6 +662,35 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Total Token Usage Banner */}
+      {allStats && (() => {
+        const allTimeTotal = allStats.daily.reduce((s, d) => s + d.totalTokens, 0);
+        const allTimeInput = allStats.daily.reduce((s, d) => s + d.inputTokens, 0);
+        const allTimeOutput = allStats.daily.reduce((s, d) => s + d.outputTokens, 0);
+        const today = new Date().toISOString().slice(0, 10);
+        const todayTokens = allStats.daily.find(d => d.date === today)?.totalTokens ?? 0;
+        return (
+          <div className="mb-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--card)]">
+              <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide mb-1">All-Time Tokens</div>
+              <div className="text-lg font-bold text-[var(--accent)]">{formatTokens(allTimeTotal)}</div>
+            </div>
+            <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--card)]">
+              <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide mb-1">Today&apos;s Tokens</div>
+              <div className="text-lg font-bold text-emerald-400">{formatTokens(todayTokens)}</div>
+            </div>
+            <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--card)]">
+              <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide mb-1">Input Tokens</div>
+              <div className="text-lg font-bold text-blue-400">{formatTokens(allTimeInput)}</div>
+            </div>
+            <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--card)]">
+              <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide mb-1">Output Tokens</div>
+              <div className="text-lg font-bold text-purple-400">{formatTokens(allTimeOutput)}</div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 卡片墙 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.agents.map((agent) => (
