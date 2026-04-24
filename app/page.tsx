@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import { GatewayStatus } from "./gateway-status";
+import { MarkdownView } from '@/app/components/markdown-view'
 import {
   AgentCard,
   ModelBadge,
@@ -238,6 +239,8 @@ export default function Home() {
   const [testingDmSessions, setTestingDmSessions] = useState(false);
   const [agentStates, setAgentStates] = useState<Record<string, string>>(cachedHomeAgentStates);
   const [agentActivity, setAgentActivity] = useState<AgentActivityData[] | null>(null);
+  const [lastJobs, setLastJobs] = useState<Array<{ agentId: string; content: string; updatedAt: number }>>([]);
+  const [expandedJob, setExpandedJob] = useState<string | null>(null);
 
   const RANGE_LABELS: Record<TimeRange, string> = { daily: t("range.daily"), weekly: t("range.weekly"), monthly: t("range.monthly") };
 
@@ -542,6 +545,12 @@ export default function Home() {
 
   // Agent 任務活動輪詢 (30秒)
   useEffect(() => {
+    const fetchLastJobs = () => {
+      fetch('/api/last-job', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => { if (Array.isArray(d.jobs)) setLastJobs(d.jobs) })
+        .catch(() => {})
+    }
     const fetchActivity = () => {
       fetch("/api/agent-activity", { cache: "no-store" })
         .then(r => r.json())
@@ -549,6 +558,7 @@ export default function Home() {
           if (d.agents) setAgentActivity(d.agents);
         })
         .catch(() => {});
+      fetchLastJobs();
     };
     fetchActivity();
     const timer = setInterval(fetchActivity, 30000);
@@ -699,6 +709,54 @@ export default function Home() {
         ))}
       </div>
 
+
+      {/* Last Job Reports */}
+      {lastJobs.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-[var(--text)] mb-3">Last Job Reports</h2>
+          <div className="space-y-3">
+            {lastJobs.map((job) => {
+              const isExpanded = expandedJob === job.agentId
+              const preview = job.content.split('\n').slice(0, 4).join('\n')
+              return (
+                <div
+                  key={job.agentId}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] overflow-hidden"
+                >
+                  {/* Header */}
+                  <button
+                    onClick={() => setExpandedJob(isExpanded ? null : job.agentId)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--bg)] transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-mono font-semibold text-[var(--accent)] shrink-0">{job.agentId}</span>
+                      <span className="text-[10px] text-[var(--text-muted)] truncate hidden sm:block">
+                        {job.content.split('\n')[0].replace(/^#+\s*/, '').slice(0, 80)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 ml-2">
+                      <span className="text-[10px] text-[var(--text-muted)]">
+                        {new Date(job.updatedAt).toLocaleString()}
+                      </span>
+                      <span className="text-[var(--text-muted)] text-xs">{isExpanded ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+                  {/* Content: preview when collapsed, full when expanded */}
+                  {isExpanded ? (
+                    <div className="px-4 pb-4 border-t border-[var(--border)] pt-3">
+                      <MarkdownView content={job.content} />
+                    </div>
+                  ) : (
+                    <div className="px-4 pb-3 border-t border-[var(--border)] pt-2 opacity-60 pointer-events-none select-none">
+                      <MarkdownView content={preview} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 汇总统计趋势 */}
       {allStats && (
