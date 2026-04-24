@@ -134,3 +134,23 @@ body {
   border-top: 1px solid var(--border);
   padding: 12px 16px;
 }
+
+/* ── Last Job Report styles ─────────────────────────────────── */
+.job-report .lj-h1 { font-size:.95rem;font-weight:700;color:var(--text);margin:1rem 0 .5rem;padding-bottom:.25rem;border-bottom:1px solid var(--border) }
+.job-report .lj-h2 { font-size:.85rem;font-weight:700;color:var(--text);margin:.75rem 0 .35rem }
+.job-report .lj-h3 { font-size:.8rem;font-weight:600;color:var(--text);margin:.6rem 0 .25rem }
+.job-report .lj-p  { color:var(--text);line-height:1.6;margin-bottom:.5rem }
+.job-report .lj-ul,.job-report .lj-ol { padding-left:1.25rem;margin-bottom:.5rem;color:var(--text) }
+.job-report .lj-ul { list-style:disc }
+.job-report .lj-ol { list-style:decimal }
+.job-report li     { margin-bottom:.15rem;font-size:.8rem }
+.job-report .lj-bq { border-left:3px solid var(--accent);padding-left:.75rem;margin:.5rem 0;color:var(--text-muted);font-style:italic }
+.job-report .lj-hr { border:none;border-top:1px solid var(--border);margin:.75rem 0 }
+.job-report .lj-code { padding:.1rem .3rem;border-radius:.2rem;font-family:monospace;font-size:.75rem;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);color:#a78bfa }
+.job-report .lj-pre { background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.4rem;padding:.75rem;overflow-x:auto;font-size:.72rem;font-family:monospace;color:var(--text);margin:.5rem 0 }
+.job-report .lj-mermaid { background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.4rem;padding:.75rem;overflow-x:auto;font-size:.72rem;font-family:monospace;color:var(--text-muted);margin:.5rem 0;white-space:pre }
+.job-report .lj-table-wrap { overflow-x:auto;margin-bottom:.75rem }
+.job-report .lj-table { width:100%;border-collapse:collapse;font-size:.75rem }
+.job-report .lj-table th { padding:.35rem .75rem;text-align:left;font-weight:600;color:var(--text);border:1px solid var(--border);background:var(--bg) }
+.job-report .lj-table td { padding:.35rem .75rem;color:var(--text-muted);border:1px solid var(--border) }
+.job-report .lj-link { color:var(--accent);text-decoration:underline }
