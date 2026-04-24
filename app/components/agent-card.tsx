@@ -472,11 +472,13 @@ export function AgentCard({
 
       {/* Live activity strip */}
       {agentActivity && (agentActivity.currentTask || agentActivity.currentTool || (agentActivity.subagents && agentActivity.subagents.length > 0)) && (
-        <div className="mt-1.5 mb-0.5 rounded-lg bg-[var(--bg)] border border-[var(--border)] px-2.5 py-2 space-y-1 text-xs">
+        <div className="mt-1.5 mb-0.5 rounded-lg bg-[var(--bg)] border border-[var(--border)] px-2.5 py-2 space-y-1 text-xs overflow-hidden">
           {agentActivity.currentTask && (
-            <div className="flex gap-1.5 items-start">
+            <div className="flex gap-1.5 items-start min-w-0">
               <span className="text-emerald-400 shrink-0 font-semibold mt-px">Task</span>
-              <TaskText text={agentActivity.currentTask} className="text-[var(--text)] leading-snug line-clamp-2" />
+              <div className="min-w-0 flex-1">
+                <TaskText text={agentActivity.currentTask} className="text-[var(--text)] leading-snug line-clamp-3 break-words block" />
+              </div>
             </div>
           )}
           {agentActivity.currentTool && (
@@ -489,11 +491,11 @@ export function AgentCard({
           {agentActivity.subagents && agentActivity.subagents.length > 0 && (
             <div className="space-y-0.5 pl-2 border-l border-[var(--border)]">
               {agentActivity.subagents.slice(0, 3).map((sub, i) => (
-                <div key={i} className="text-[var(--text-muted)] flex items-start gap-1">
+                <div key={i} className="text-[var(--text-muted)] flex items-start gap-1 min-w-0 overflow-hidden">
                   <span className="text-[var(--accent)] shrink-0">↳</span>
-                  <span className="font-medium text-[var(--text)] shrink-0">{sub.label}</span>
+                  <span className="font-medium text-[var(--text)] shrink-0 max-w-[8rem] truncate">{sub.label}</span>
                   {sub.activityEvents && sub.activityEvents.length > 0 && (
-                    <span className="opacity-60 truncate">— {sub.activityEvents[sub.activityEvents.length - 1].text}</span>
+                    <span className="opacity-60 truncate min-w-0">— {sub.activityEvents[sub.activityEvents.length - 1].text}</span>
                   )}
                 </div>
               ))}
