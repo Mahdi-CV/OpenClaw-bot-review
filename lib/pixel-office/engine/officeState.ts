@@ -396,6 +396,8 @@ export class OfficeState {
   interactionPoints: InteractionPoint[]
   doorwayTiles: Array<{ col: number; row: number }>
   characters: Map<number, Character> = new Map()
+  private highFivePairs: Map<number, number> = new Map()  // charId → partnerCharId
+  private highFiveCelebTimer = 0
   selectedAgentId: number | null = null
   cameraFollowId: number | null = null
   hoveredAgentId: number | null = null
@@ -1490,6 +1492,87 @@ export class OfficeState {
     ch.codeSnippets.push({ text: truncated, age: 0, x: (Math.random() - 0.5) * 20, y: 0, real: true } as any)
   }
 
+  /** Phase 2 of high-five: called from update() once a pair has arrived. */
+  private celebrateHighFive(ch: Character, partner: Character): void {
+    const EMOJIS = ['✋', '🙌', '🎉']
+    const MSGS   = ['nice work!', 'high five!', 'great job!', 'team wins!', 'lets go!', 'nailed it!']
+    // Face each other
+    const dx = partner.x - ch.x
+    const dy = partner.y - ch.y
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      ch.dir = dx > 0 ? Direction.RIGHT : Direction.LEFT
+      partner.dir = dx > 0 ? Direction.LEFT : Direction.RIGHT
+    } else {
+      ch.dir = dy > 0 ? Direction.DOWN : Direction.UP
+      partner.dir = dy > 0 ? Direction.UP : Direction.DOWN
+    }
+    // Pause wandering for a moment
+    ch.wanderTimer = 3.5
+    partner.wanderTimer = 3.5
+    // Emit emoji bubbles
+    const idx = Math.floor(Math.random() * MSGS.length)
+    for (const c of [ch, partner]) {
+      c.codeSnippets = c.codeSnippets.filter((s: any) => !s.real)
+      const e = EMOJIS[Math.floor(Math.random() * EMOJIS.length)]
+      const m = MSGS[(idx + (c === ch ? 0 : 1)) % MSGS.length]
+      c.codeSnippets.push({ text: `${e} ${m}`, age: 0, x: (Math.random() - 0.5) * 18, y: 0, real: true } as any)
+    }
+  }
+
+  /** Trigger a team high-five: pair up agents, walk them toward each other, celebrate on arrival. */
+  triggerHighFive(): void {
+    // Clear any previous pending pairs
+    this.highFivePairs.clear()
+    const chars = [...this.characters.values()].filter(
+      ch => !ch.isCat && !ch.isLobster && !(ch as any).isSystemRole && !ch.isSubagent,
+    )
+    const used = new Set<number>()
+    for (const ch of chars) {
+      if (used.has(ch.id)) continue
+      // Find nearest unpaired partner
+      let nearest: typeof ch | null = null
+      let nearestDist = Infinity
+      for (const other of chars) {
+        if (other.id === ch.id || used.has(other.id)) continue
+        const dx = other.x - ch.x
+        const dy = other.y - ch.y
+        const d = Math.sqrt(dx * dx + dy * dy)
+        if (d < nearestDist) { nearestDist = d; nearest = other }
+      }
+      if (!nearest) { used.add(ch.id); continue }
+
+      used.add(ch.id)
+      used.add(nearest.id)
+
+      // Register the pair
+      this.highFivePairs.set(ch.id, nearest.id)
+      this.highFivePairs.set(nearest.id, ch.id)
+
+      // Walk each toward a tile adjacent to the other
+      // Pick a tile 1-2 steps away from partner along the axis with most separation
+      const dx = nearest.tileCol - ch.tileCol
+      const dy = nearest.tileRow - ch.tileRow
+      const dist = Math.max(Math.abs(dx), Math.abs(dy))
+      if (dist <= 1) {
+        // Already adjacent — celebrate immediately
+        this.celebrateHighFive(ch, nearest)
+        this.highFivePairs.delete(ch.id)
+        this.highFivePairs.delete(nearest.id)
+        continue
+      }
+      // Walk ch toward nearest (stop 1 tile away)
+      const stepCh = Math.max(0, dist - 1)
+      const targetChCol = ch.tileCol + Math.round((dx / dist) * stepCh)
+      const targetChRow = ch.tileRow + Math.round((dy / dist) * stepCh)
+      // Walk nearest toward ch (stop 1 tile away)
+      const targetNCol = nearest.tileCol - Math.round((dx / dist) * stepCh)
+      const targetNRow = nearest.tileRow - Math.round((dy / dist) * stepCh)
+
+      this.walkToTile(ch.id, targetChCol, targetChRow)
+      this.walkToTile(nearest.id, targetNCol, targetNRow)
+    }
+  }
+
   /** Dismiss bubble on click — permission: instant, waiting: quick fade */
   dismissBubble(id: number): void {
     const ch = this.characters.get(id)
@@ -1538,6 +1621,16 @@ export class OfficeState {
         this.withOwnSeatUnblocked(ch, () =>
           updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles, this.interactionPoints)
         )
+        // High-five arrival check: if this char just finished walking to its partner
+        if (this.highFivePairs.has(ch.id) && ch.path.length === 0 && ch.state === CharacterState.IDLE) {
+          const partnerId = this.highFivePairs.get(ch.id)!
+          const partner = this.characters.get(partnerId)
+          if (partner && partner.path.length === 0 && partner.state === CharacterState.IDLE) {
+            this.celebrateHighFive(ch, partner)
+            this.highFivePairs.delete(ch.id)
+            this.highFivePairs.delete(partnerId)
+          }
+        }
       }
 
       if (ch.isLobster) {

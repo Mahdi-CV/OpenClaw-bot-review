@@ -28,6 +28,19 @@ const prevAgentStates = new Map<string, string>()
 /** Track last real snippet text pushed per agent to avoid duplicates */
 const lastRealSnippet = new Map<string, string>()
 
+/** Debounce high-five: track last task text that triggered it so we don't repeat */
+const lastHighFiveTrigger = new Map<string, string>()
+
+/** Returns true if the task text is a high-five / celebrate command */
+function isHighFiveCommand(text: string): boolean {
+  const t = text.toLowerCase()
+  return (
+    t.includes('high five') || t.includes('high-five') || t.includes('highfive') ||
+    t.includes('give a high') || t.includes('celebrate') || t.includes('great job team') ||
+    t.includes('well done team') || t.includes('nice work team') || t.includes('fist bump')
+  )
+}
+
 export function syncAgentsToOffice(
   activities: AgentActivity[],
   office: OfficeState,
@@ -97,12 +110,21 @@ export function syncAgentsToOffice(
             lastRealSnippet.set(activity.agentId, bubbleText)
             office.pushRealActivitySnippet(charId, bubbleText)
           }
+          // Detect high-five command in task text
+          if (activity.currentTask && isHighFiveCommand(activity.currentTask)) {
+            const prev = lastHighFiveTrigger.get(activity.agentId)
+            if (prev !== activity.currentTask) {
+              lastHighFiveTrigger.set(activity.agentId, activity.currentTask)
+              office.triggerHighFive()
+            }
+          }
         }
         break
       case 'idle':
         office.setAgentActive(charId, false)
         office.setAgentTool(charId, null)
         lastRealSnippet.delete(activity.agentId)
+        lastHighFiveTrigger.delete(activity.agentId)
         break
       case 'waiting':
         office.setAgentActive(charId, true)
